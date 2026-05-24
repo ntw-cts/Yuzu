@@ -307,6 +307,24 @@ let focusIdx = -1;
 let dropdownItems = [];
 let currentAudioLang = 'jpn';
 
+// ── PROXY URL RESOLVER ────────────────────────────────────────────────────────
+// The API's /m3u8 endpoint returns a proxy_url that may be:
+//   1. An absolute URL already (starts with http) → use as-is
+//   2. A relative path (starts with /) → prepend API base origin
+// This ensures .m3u8 playlists AND their .ts segment URLs all route
+// through the API server (avoiding CORS/blocked CDN direct access).
+function resolveProxyUrl(proxyUrl) {
+  if (!proxyUrl) return '';
+  if (proxyUrl.startsWith('http')) return proxyUrl;
+  // Extract origin from API constant (e.g. https://animepaheapi-b8oh.onrender.com)
+  try {
+    const origin = new URL(API).origin;
+    return origin + proxyUrl;
+  } catch (_) {
+    return API + proxyUrl;
+  }
+}
+
 // ── QUALITY STATE ────────────────────────────────────────────────────────────
 // We use Plyr's native quality menu. Each source gets an integer "quality index"
 // as its ID. Plyr renders them in its gear ⚙ settings panel automatically.
@@ -357,9 +375,8 @@ function _swapSource(src) {
   fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`)
     .then(r => r.json())
     .then(data => { 
-      // เช็คก่อนว่า url ที่ได้มาเต็มรูปแบบหรือยัง ถ้ายังให้เติม API เข้าไปข้างหน้า
-      const fullProxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API}${data.proxy_url}`;
-      _playUrl(fullProxyUrl); 
+      const proxyUrl = resolveProxyUrl(data.proxy_url);
+      _playUrl(proxyUrl); 
     })
     .catch(() => { hideLoading(); toast(`Failed to switch quality`, 'err'); });
 }
@@ -571,10 +588,8 @@ async function loadSource(src) {
   try {
     const res = await fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`);
     const data = await res.json();
-    
-    // เติม API นำหน้าเหมือนจุดแรก
-    const fullProxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API}${data.proxy_url}`;
-    startPlayback(fullProxyUrl);
+    const proxyUrl = resolveProxyUrl(data.proxy_url);
+    startPlayback(proxyUrl);
   } catch {
     hideLoading();
     toast(`Failed to resolve ${src.quality} stream`, 'err');
@@ -589,7 +604,23 @@ function _playUrl(url) {
   if (hls) { hls.destroy(); hls = null; }
 
   if (Hls.isSupported()) {
-    hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      // Route all segment/manifest XHR requests through the API proxy if they
+      // are relative paths (the rewritten m3u8 may contain relative .ts URLs).
+      // xhrSetup lets us rewrite the URL before the request fires.
+      xhrSetup: function(xhr, segUrl) {
+        // If the segment URL is not absolute, resolve it via the API origin
+        if (segUrl && !segUrl.startsWith('http')) {
+          try {
+            const origin = new URL(API).origin;
+            segUrl = origin + (segUrl.startsWith('/') ? '' : '/') + segUrl;
+          } catch(_) {}
+          xhr.open('GET', segUrl, true);
+        }
+      }
+    });
     hls.loadSource(url);
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {

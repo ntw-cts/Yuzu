@@ -1,15 +1,18 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const AnimePahe = require('./lib/animepahe');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from public directory
 app.use(express.static('public'));
 
+// Create AnimePahe instance
 const pahe = new AnimePahe();
 
 function mapErrorToStatusCode(message) {
@@ -20,6 +23,7 @@ function mapErrorToStatusCode(message) {
   return 500;
 }
 
+// Routes
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to Animepahe API',
@@ -28,10 +32,16 @@ app.get('/', (req, res) => {
       episodes: '/episodes?session=anime-session-id',
       latest: '/latest?page=1',
       sources: '/sources?anime_session=xxx&episode_session=yyy',
-      ids: '/ids?session=anime-session-id',
-      m3u8: '/m3u8?url=kwik-url',
-      proxy: '/proxy?url=m3u8-or-ts-url&referer=kwik-referer',
+      ids: '/ids?session=anime-session-id (returns AniList and MyAnimeList IDs)',
+      m3u8: '/m3u8?url=kwik-url (returns m3u8 URL with required referer)',
+      proxy: '/proxy?url=m3u8-or-ts-url&referer=kwik-referer (Use this to play videos)',
       health: '/health'
+    },
+    usage: {
+      note: 'Use /proxy endpoint to stream videos through the server to bypass CORS and referrer restrictions',
+      step1: 'Get M3U8 URL and referer from /m3u8 endpoint',
+      step2: 'Use the returned proxy_url directly, or use /proxy?url=<m3u8-url>&referer=<referer> in your video player',
+      example: '/m3u8 returns { m3u8: "...", referer: "https://kwik.si/", proxy_url: "/proxy?url=..." }'
     }
   });
 });
@@ -47,8 +57,11 @@ app.get('/watch', (req, res) => {
 app.get('/search', async (req, res) => {
   try {
     const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Query parameter "q" is required' });
-    res.json(await pahe.search(q));
+    if (!q) {
+      return res.status(400).json({ error: 'Query parameter "q" is required' });
+    }
+    const results = await pahe.search(q);
+    res.json(results);
   } catch (error) {
     console.error('Search error:', error);
     res.status(mapErrorToStatusCode(error.message)).json({ error: error.message });
@@ -58,8 +71,11 @@ app.get('/search', async (req, res) => {
 app.get('/episodes', async (req, res) => {
   try {
     const { session } = req.query;
-    if (!session) return res.status(400).json({ error: 'Query parameter "session" is required' });
-    res.json(await pahe.getEpisodes(session));
+    if (!session) {
+      return res.status(400).json({ error: 'Query parameter "session" is required' });
+    }
+    const episodes = await pahe.getEpisodes(session);
+    res.json(episodes);
   } catch (error) {
     console.error('Episodes error:', error);
     res.status(mapErrorToStatusCode(error.message)).json({ error: error.message });
@@ -69,7 +85,8 @@ app.get('/episodes', async (req, res) => {
 app.get('/latest', async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    res.json(await pahe.getLatest(page));
+    const latest = await pahe.getLatest(page);
+    res.json(latest);
   } catch (error) {
     console.error('Latest error:', error);
     res.status(mapErrorToStatusCode(error.message)).json({ error: error.message });
@@ -80,9 +97,12 @@ app.get('/sources', async (req, res) => {
   try {
     const { anime_session, episode_session } = req.query;
     if (!anime_session || !episode_session) {
-      return res.status(400).json({ error: 'Query parameters "anime_session" and "episode_session" are required' });
+      return res.status(400).json({
+        error: 'Query parameters "anime_session" and "episode_session" are required'
+      });
     }
-    res.json(await pahe.getSources(anime_session, episode_session));
+    const sources = await pahe.getSources(anime_session, episode_session);
+    res.json(sources);
   } catch (error) {
     console.error('Sources error:', error);
     res.status(mapErrorToStatusCode(error.message)).json({ error: error.message });
@@ -92,8 +112,11 @@ app.get('/sources', async (req, res) => {
 app.get('/ids', async (req, res) => {
   try {
     const { session } = req.query;
-    if (!session) return res.status(400).json({ error: 'Query parameter "session" is required' });
-    res.json(await pahe.getIds(session));
+    if (!session) {
+      return res.status(400).json({ error: 'Query parameter "session" is required' });
+    }
+    const ids = await pahe.getIds(session);
+    res.json(ids);
   } catch (error) {
     console.error('IDs error:', error);
     res.status(mapErrorToStatusCode(error.message)).json({ error: error.message });
@@ -103,12 +126,19 @@ app.get('/ids', async (req, res) => {
 app.get('/m3u8', async (req, res) => {
   try {
     const { url } = req.query;
-    if (!url) return res.status(400).json({ error: 'Query parameter "url" is required' });
+    if (!url) {
+      return res.status(400).json({ error: 'Query parameter "url" is required' });
+    }
     const result = await pahe.resolveKwikWithNode(url);
+
+    // Return m3u8 URL along with required referer for CORS bypass
     res.json({
       m3u8: result.m3u8,
       referer: result.referer,
-      headers: { 'Referer': result.referer, 'Origin': result.origin },
+      headers: {
+        'Referer': result.referer,
+        'Origin': result.origin
+      },
       proxy_url: `/proxy?url=${encodeURIComponent(result.m3u8)}&referer=${encodeURIComponent(result.referer)}`
     });
   } catch (error) {
@@ -116,22 +146,6 @@ app.get('/m3u8', async (req, res) => {
     res.status(mapErrorToStatusCode(error.message)).json({ error: error.message });
   }
 });
-
-// ── Helper: build CDN-compatible headers ─────────────────────────────────────
-function makeCdnHeaders(referer) {
-  // owocdn.top requires Referer pointing to kwik.cx — use what was passed, or default to kwik root
-  const ref = referer || 'https://kwik.cx/';
-  let origin = 'https://kwik.cx';
-  try { origin = new URL(ref).origin; } catch (_) {}
-  return {
-    'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Referer':         ref,
-    'Origin':          origin,
-    'Accept':          '*/*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Connection':      'keep-alive',
-  };
-}
 
 app.get('/proxy', async (req, res) => {
   try {
@@ -146,90 +160,90 @@ app.get('/proxy', async (req, res) => {
         const result = await pahe.resolveKwikWithNode(url);
         return res.redirect(302, `/proxy?url=${encodeURIComponent(result.m3u8)}&referer=${encodeURIComponent(result.referer)}`);
       } catch (e) {
-        console.error('Failed to auto-resolve Kwik URL:', e);
         return res.status(500).json({ error: 'Failed to resolve Kwik URL', details: e.message });
       }
     }
 
-    const headers = makeCdnHeaders(customReferer);
+    const referer = customReferer || 'https://kwik.cx/';
+    let origin = 'https://kwik.cx';
+    try { origin = new URL(referer).origin; } catch (_) {}
 
-    const response = await axios.get(url, {
-      headers,
-      responseType: 'stream',
-      timeout: 30000,
-      maxRedirects: 5,
-      // Don't throw on 4xx — let us handle and forward status properly
-      validateStatus: () => true,
+    // Use undici (Node 18+ built-in) for real HTTP/2 + browser-like TLS fingerprint
+    // This is what lets us pass Cloudflare — axios uses HTTP/1.1 which CF flags.
+    const { fetch: undiciFetch } = require('undici');
+
+    const response = await undiciFetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': referer,
+        'Origin': origin,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'cross-site',
+        'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+      },
+      redirect: 'follow',
     });
 
     console.log(`[proxy] ${response.status} ${url.slice(0, 80)}`);
 
-    // Forward non-200 statuses so the browser sees the real error code
-    if (response.status !== 200) {
-      // Drain the stream to free the socket
-      response.data.resume();
+    if (!response.ok) {
       return res.status(response.status).json({
         error: `CDN returned ${response.status}`,
         url: url.slice(0, 120),
-        referer: headers['Referer'],
-        origin: headers['Origin'],
+        referer,
       });
     }
 
-    const contentType = response.headers['content-type'] ||
+    const contentType = response.headers.get('content-type') ||
       (url.includes('.m3u8') ? 'application/vnd.apple.mpegurl' :
-       url.includes('.ts')   ? 'video/mp2t'                    :
-       url.includes('.key')  ? 'application/octet-stream'      : 'application/octet-stream');
+       url.includes('.ts')   ? 'video/mp2t' : 'application/octet-stream');
 
-    // M3U8 playlists: rewrite all URIs through /proxy with referer baked in
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     if (contentType.includes('mpegurl') || url.includes('.m3u8')) {
-      let content = '';
-      response.data.on('data', chunk => { content += chunk.toString(); });
-      response.data.on('end', () => {
-        const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-        const refererParam = `&referer=${encodeURIComponent(headers['Referer'])}`;
+      const text = await response.text();
+      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+      const refererParam = `&referer=${encodeURIComponent(referer)}`;
 
-        const modified = content.split('\n').map(line => {
-          const t = line.trim();
-          if (!t) return line;
-
-          if (t.startsWith('#')) {
-            // Rewrite EXT-X-KEY URI so encryption keys also go through proxy
-            if (t.includes('URI="')) {
-              return t.replace(/URI="([^"]+)"/, (_, uri) => {
-                const fullUrl = uri.startsWith('http') ? uri : baseUrl + uri;
-                return `URI="/proxy?url=${encodeURIComponent(fullUrl)}${refererParam}"`;
-              });
-            }
-            return line;
+      const modified = text.split('\n').map(line => {
+        const t = line.trim();
+        if (!t) return line;
+        if (t.startsWith('#')) {
+          if (t.includes('URI="')) {
+            return t.replace(/URI="([^"]+)"/, (_, uri) => {
+              const fullUrl = uri.startsWith('http') ? uri : baseUrl + uri;
+              return `URI="/proxy?url=${encodeURIComponent(fullUrl)}${refererParam}"`;
+            });
           }
+          return line;
+        }
+        const fullUrl = t.startsWith('http') ? t : baseUrl + t;
+        return `/proxy?url=${encodeURIComponent(fullUrl)}${refererParam}`;
+      }).join('\n');
 
-          // Segment / sub-playlist lines
-          const fullUrl = t.startsWith('http') ? t : baseUrl + t;
-          return `/proxy?url=${encodeURIComponent(fullUrl)}${refererParam}`;
-        }).join('\n');
-
-        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.send(modified);
-      });
-
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.send(modified);
     } else {
-      // Binary: ts segments, key files, etc. — stream straight through
       res.setHeader('Content-Type', contentType);
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Accept-Ranges', 'bytes');
-      if (response.headers['content-length']) res.setHeader('Content-Length', response.headers['content-length']);
-      if (response.headers['content-range'])  res.setHeader('Content-Range',  response.headers['content-range']);
-      response.data.pipe(res);
+      const cl = response.headers.get('content-length');
+      if (cl) res.setHeader('Content-Length', cl);
+      // Stream binary content (ts segments, key files)
+      const { Readable } = require('stream');
+      Readable.fromWeb(response.body).pipe(res);
     }
-
   } catch (error) {
     console.error('[proxy] exception:', error.message, '| url:', req.query.url?.slice(0, 100));
     if (!res.headersSent) res.status(500).json({ error: error.message });
   }
 });
 
+// Handle OPTIONS for CORS preflight
 app.options('/proxy', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -237,15 +251,21 @@ app.options('/proxy', (req, res) => {
   res.sendStatus(200);
 });
 
+// Global error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message
+  });
 });
 
+// Export for Vercel
 module.exports = app;
 
+// Start server if not in Vercel environment
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Animepahe API server running on port ${PORT}`);
   });
-}
+      }

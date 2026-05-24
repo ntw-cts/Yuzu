@@ -1,0 +1,2979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YUZU — Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a24; --bg4: #22222f;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+  --accent: #c8d832; --accent2: #dff03a; --accent-dim: rgba(200,216,50,0.12);
+  --text: #f0ede8; --text2: #9996a0; --text3: #5a5768;
+  --green: #3adb76; --red: #e84444; --yellow: #f0b429;
+  --font: 'Syne', sans-serif; --mono: 'JetBrains Mono', monospace;
+  --radius: 10px; --radius-lg: 16px; --topbar-h: 56px;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 99px; }
+
+/* ── TOPBAR ── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  height: var(--topbar-h);
+  display: flex; align-items: center; gap: 16px; padding: 0 28px;
+  background: rgba(10,10,15,0.85);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.3s;
+}
+.logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; white-space: nowrap; text-decoration: none; color: var(--text); }
+.logo span { color: var(--accent); }
+.nav { display: flex; align-items: center; gap: 4px; margin-left: 24px; }
+.nav a {
+  font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: var(--radius);
+  color: var(--text2); text-decoration: none; transition: all 0.15s; letter-spacing: 0.02em;
+}
+.nav a:hover { color: var(--text); background: var(--bg3); }
+.nav a.active { color: var(--accent); }
+
+/* SEARCH BAR in topbar */
+.topbar-search {
+  flex: 1; max-width: 380px; position: relative; margin-left: auto;
+}
+.topbar-search input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--radius); color: var(--text); font-family: var(--font);
+  font-size: 13px; padding: 8px 38px 8px 38px; outline: none; transition: border-color 0.2s;
+}
+.topbar-search input:focus { border-color: var(--accent); }
+.topbar-search input::placeholder { color: var(--text3); }
+.ts-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
+.ts-spinner {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  width: 13px; height: 13px; border: 2px solid var(--border2);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.7s linear infinite; display: none;
+}
+.ts-spinner.active { display: block; }
+@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+/* DROPDOWN */
+.ts-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--radius); z-index: 300; display: none;
+  max-height: 380px; overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+}
+.ts-dropdown.open { display: block; }
+.dd-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; cursor: pointer; transition: background 0.12s;
+  border-bottom: 1px solid var(--border);
+}
+.dd-item:last-child { border-bottom: none; }
+.dd-item:hover, .dd-item.focused { background: var(--bg4); }
+.dd-item img { width: 34px; height: 48px; object-fit: cover; border-radius: 4px; background: var(--bg4); flex-shrink: 0; }
+.dd-info { flex: 1; min-width: 0; }
+.dd-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-meta { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+.dd-badge { font-size: 10px; padding: 2px 7px; border-radius: 99px; background: var(--bg4); border: 1px solid var(--border2); color: var(--text2); flex-shrink: 0; }
+.dd-empty { padding: 16px; text-align: center; color: var(--text3); font-size: 13px; font-family: var(--mono); }
+
+/* STATUS */
+.status-pill {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 11px;
+  padding: 5px 12px; border-radius: 99px;
+  border: 1px solid var(--border2); background: var(--bg3);
+  color: var(--text2); white-space: nowrap; flex-shrink: 0;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); transition: background 0.4s; flex-shrink: 0; }
+.status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.red   { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+.status-dot.pulse { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── PAGE BODY ── */
+.page { padding-top: var(--topbar-h); }
+
+/* ── HERO ── */
+.hero {
+  position: relative; height: 82vh; min-height: 520px; max-height: 820px;
+  display: flex; align-items: flex-end;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute; inset: 0; z-index: 0;
+}
+.hero-bg img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center top;
+  filter: saturate(0.55) brightness(0.55);
+  transition: opacity 0.6s;
+}
+.hero-bg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(10,10,15,0.98) 0%,
+    rgba(10,10,15,0.7) 38%,
+    rgba(10,10,15,0.15) 65%,
+    transparent 100%
+  ),
+  linear-gradient(to top, rgba(10,10,15,1) 0%, transparent 50%);
+}
+.hero-content {
+  position: relative; z-index: 2;
+  padding: 0 56px 52px;
+  max-width: 600px;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--accent); background: rgba(200,216,50,0.1);
+  border: 1px solid rgba(200,216,50,0.3);
+  padding: 4px 10px; border-radius: 99px; margin-bottom: 16px;
+}
+.hero-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.hero-title {
+  font-size: clamp(32px, 4.5vw, 58px); font-weight: 800;
+  line-height: 1.05; letter-spacing: -1.5px; margin-bottom: 14px;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.5);
+}
+.hero-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px; font-family: var(--mono); font-size: 11px; color: var(--text2);
+}
+.hero-meta .sep { color: var(--text3); }
+.hero-score { color: var(--accent); font-weight: 700; }
+.hero-desc {
+  font-size: 14px; color: var(--text2); line-height: 1.65;
+  margin-bottom: 28px;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hero-actions { display: flex; align-items: center; gap: 12px; }
+.btn-watch {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #0a0a0f;
+  font-family: var(--font); font-weight: 700; font-size: 14px;
+  padding: 11px 24px; border-radius: var(--radius); border: none;
+  cursor: pointer; text-decoration: none; transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-watch:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(200,216,50,0.3); }
+.btn-watch svg { flex-shrink: 0; }
+.btn-more {
+  display: flex; align-items: center; gap: 8px;
+  background: transparent; color: var(--text);
+  font-family: var(--font); font-weight: 600; font-size: 14px;
+  padding: 10px 20px; border-radius: var(--radius);
+  border: 1px solid var(--border2); cursor: pointer; text-decoration: none;
+  transition: all 0.15s;
+}
+.btn-more:hover { border-color: var(--text2); background: var(--bg3); }
+
+/* HERO DOTS */
+.hero-dots {
+  position: absolute; bottom: 52px; right: 56px; z-index: 3;
+  display: flex; gap: 8px; align-items: center;
+}
+.hero-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text3); cursor: pointer; transition: all 0.2s;
+}
+.hero-dot.active { background: var(--accent); width: 22px; border-radius: 99px; }
+
+/* HERO NAV ARROWS */
+.hero-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 4; width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55); border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 50%; cursor: pointer;
+  color: #fff; opacity: 0; transition: opacity 0.2s, transform 0.15s, background 0.15s;
+}
+.hero-arrow.left  { left: 20px; }
+.hero-arrow.right { right: 20px; }
+.hero-arrow:hover { opacity: 1 !important; background: rgba(0,0,0,0.8); border-color: rgba(255,255,255,0.6); transform: translateY(-50%) scale(1.1); }
+.hero:hover .hero-arrow { opacity: 1; }
+@media (max-width: 700px) {
+  .hero-arrow { opacity: 1; left: 12px; }
+  .hero-arrow.right { left: auto; right: 12px; }
+}
+
+/* ── SECTION ── */
+.section { padding: 40px 28px 0; }
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-size: 18px; font-weight: 800; letter-spacing: -0.3px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title .tag {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-dim);
+  padding: 3px 8px; border-radius: 99px;
+}
+.section-more {
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  text-decoration: none; display: flex; align-items: center; gap: 4px;
+  transition: color 0.15s;
+}
+.section-more:hover { color: var(--accent); }
+
+/* HORIZONTAL SCROLL ROW */
+.scroll-row-wrap { position: relative; }
+.scroll-row {
+  display: flex; gap: 14px; overflow-x: auto; padding-bottom: 16px;
+  scrollbar-width: none;
+}
+.scroll-row::-webkit-scrollbar { display: none; }
+
+/* ROW NAV ARROWS */
+.row-arrow {
+  position: absolute; top: 50%; transform: translateY(calc(-50% - 8px));
+  z-index: 10; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55); border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 50%; cursor: pointer;
+  color: #fff; opacity: 0; pointer-events: none;
+  transition: opacity 0.18s, transform 0.15s, background 0.15s;
+}
+.row-arrow svg { flex-shrink: 0; }
+.row-arrow.left  { left: 6px; }
+.row-arrow.right { right: 6px; }
+.row-arrow:hover { opacity: 1 !important; background: rgba(0,0,0,0.8); border-color: rgba(255,255,255,0.6); transform: translateY(calc(-50% - 8px)) scale(1.1); }
+.scroll-row-wrap:hover .row-arrow { opacity: 1; pointer-events: auto; }
+.row-arrow.hidden { opacity: 0 !important; pointer-events: none !important; }
+@media (max-width: 700px) {
+  .row-arrow { display: none; }
+}
+
+/* ANIME CARD */
+.a-card {
+  flex-shrink: 0; width: 150px; cursor: pointer;
+  transition: transform 0.18s;
+}
+.a-card:hover { transform: translateY(-4px); }
+.a-card:hover .a-card-overlay { opacity: 1; }
+.a-poster {
+  width: 150px; height: 212px; object-fit: cover; border-radius: var(--radius);
+  background: var(--bg3); display: block; position: relative;
+}
+.a-card-img-wrap { position: relative; border-radius: var(--radius); overflow: hidden; }
+.a-card-img-wrap img { width: 150px; height: 212px; object-fit: cover; display: block; background: var(--bg3); }
+.a-card-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(10,10,15,0.92) 0%, transparent 55%);
+  opacity: 0; transition: opacity 0.18s;
+  display: flex; align-items: flex-end; padding: 10px;
+}
+.a-card-play {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--accent); display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 6px;
+}
+.a-card-play svg { color: #0a0a0f; }
+.a-card-overlay-inner { width: 100%; text-align: center; }
+.a-card-ep { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+
+/* ⓘ info button on card */
+.a-card-info-btn {
+  position: absolute; top: 7px; right: 7px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(10,10,15,0.72); border: 1px solid rgba(255,255,255,0.18);
+  color: var(--text2); cursor: pointer; backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.18s, background 0.15s, color 0.15s;
+  z-index: 3;
+}
+.a-card:hover .a-card-info-btn { opacity: 1; }
+.a-card-info-btn:hover { background: var(--accent); border-color: var(--accent); color: #111; }
+
+/* Quick-info strip at bottom of overlay */
+.a-card-quickinfo {
+  font-family: var(--mono); font-size: 9px; color: var(--text2);
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  margin-top: 4px; line-height: 1.3;
+}
+.a-card-quickinfo .qi-score { color: var(--accent); font-weight: 700; }
+.a-card-quickinfo .qi-sep { color: var(--text3); }
+
+.a-info { padding: 8px 2px 0; }
+.a-title { font-size: 13px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.a-sub { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 3px; }
+.a-badge {
+  display: inline-block; font-size: 9px; font-family: var(--mono); letter-spacing: 0.05em;
+  padding: 2px 6px; border-radius: 4px; margin-top: 4px;
+  background: var(--bg4); border: 1px solid var(--border2); color: var(--text3);
+}
+
+/* RANK CARD (top-10 style) */
+.rank-card {
+  flex-shrink: 0; width: 200px; cursor: pointer;
+  display: flex; gap: 12px; align-items: center;
+  padding: 10px 12px; border-radius: var(--radius);
+  background: var(--bg2); border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.rank-card:hover { background: var(--bg3); border-color: var(--border2); transform: translateY(-2px); }
+.rank-num {
+  font-size: 28px; font-weight: 800; color: var(--bg4);
+  font-family: var(--mono); line-height: 1; flex-shrink: 0; width: 28px; text-align: center;
+  -webkit-text-stroke: 1px var(--border2);
+}
+.rank-card:nth-child(1) .rank-num,
+.rank-card:nth-child(2) .rank-num,
+.rank-card:nth-child(3) .rank-num { -webkit-text-stroke: 1px rgba(200,216,50,0.3); color: var(--accent-dim); }
+.rank-img { width: 46px; height: 64px; object-fit: cover; border-radius: 6px; background: var(--bg4); flex-shrink: 0; }
+.rank-info { flex: 1; min-width: 0; }
+.rank-title { font-size: 12px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rank-meta { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+/* GENRE PILLS */
+.genre-row { display: flex; gap: 8px; flex-wrap: wrap; padding: 4px 0 14px; }
+.genre-pill {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+  padding: 6px 14px; border-radius: 99px;
+  border: 1px solid var(--border2); background: var(--bg2);
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+  text-decoration: none;
+}
+.genre-pill:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.genre-pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* WIDE CARD (for recently updated row) */
+.wide-card {
+  flex-shrink: 0; width: 280px; cursor: pointer;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+  transition: all 0.15s;
+  display: flex; flex-direction: column;
+}
+.wide-card:hover { border-color: var(--border2); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.wide-card-banner {
+  width: 100%; height: 140px; object-fit: cover;
+  background: var(--bg3); display: block;
+  position: relative;
+}
+.wide-card-banner-wrap { position: relative; }
+.wide-card-banner-wrap img { width: 100%; height: 140px; object-fit: cover; background: var(--bg3); }
+.wide-card-banner-wrap::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(17,17,24,1) 0%, transparent 60%);
+}
+.wide-card-body { padding: 10px 14px 14px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.wide-card-title { font-size: 13px; font-weight: 700; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wide-card-meta { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.wide-card-ep {
+  margin-top: auto; padding-top: 8px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--accent); display: flex; align-items: center; gap: 5px;
+}
+.wide-card-ep::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+/* CONTINUE ROW */
+.continue-card {
+  flex-shrink: 0; width: 240px; cursor: pointer;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+  transition: all 0.15s; position: relative;
+}
+.continue-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+.continue-card-thumb { position: relative; }
+.continue-card-thumb img { width: 100%; height: 130px; object-fit: cover; background: var(--bg3); display: block; }
+.continue-card-thumb::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(17,17,24,1) 0%, transparent 60%);
+}
+.continue-progress {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: var(--bg4);
+}
+.continue-progress-bar { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s; }
+.continue-body { padding: 10px 12px 12px; }
+.continue-title { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.continue-ep { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+.continue-clear {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(10,10,15,0.8); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: var(--text3);
+  opacity: 0; transition: opacity 0.15s;
+}
+.continue-card:hover .continue-clear { opacity: 1; }
+.continue-clear:hover { color: var(--red); }
+
+/* GRID SECTION */
+.anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 16px;
+  padding: 0 28px;
+}
+
+/* FOOTER */
+.footer {
+  margin-top: 60px; padding: 28px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.footer-logo { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+.footer-logo span { color: var(--accent); }
+.footer-copy { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+/* SKELETON LOADING */
+.skel {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius);
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+.skel-card { flex-shrink: 0; width: 150px; }
+.skel-poster { width: 150px; height: 212px; }
+.skel-line { height: 12px; margin-top: 8px; }
+.skel-line.w60 { width: 60%; }
+.skel-line.w80 { width: 80%; }
+
+/* TOAST */
+.toast-wrap { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  border-radius: var(--radius); border: 1px solid var(--border2); background: var(--bg3);
+  font-size: 12px; font-family: var(--mono); animation: slide-in 0.2s ease;
+  max-width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.toast.err  { border-color: rgba(232,68,68,0.4); color: #ff7c7c; }
+.toast.ok   { border-color: rgba(58,219,118,0.3); color: var(--green); }
+.toast.warn { border-color: rgba(240,180,41,0.3); color: var(--yellow); }
+@keyframes slide-in { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  color: var(--text3); font-family: var(--mono); font-size: 12px; line-height: 2;
+}
+
+/* FADE-IN ANIMATION */
+.fade-in { animation: fadeUp 0.4s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+.nav-calendar-btn {
+  display: flex; align-items: center; gap: 5px;
+  border: 1px solid rgba(200,216,50,0.3) !important;
+  color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+}
+.nav-calendar-btn:hover { border-color: var(--accent) !important; background: rgba(200,216,50,0.2) !important; }
+.nav-calendar-btn.active { border-color: var(--accent) !important; background: rgba(200,216,50,0.18) !important; color: var(--accent) !important; }
+
+  .hero-content { padding: 0 20px 36px; }
+  .hero-dots { right: 20px; }
+  .section { padding: 32px 16px 0; }
+
+  .anime-grid { padding: 0 16px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  .footer { padding: 20px 16px; }
+  .cal-schedule, .cal-skeleton-grid { padding: 0 16px 40px; }
+  .cal-header { padding: 32px 16px 0; }
+  .cal-day-tabs { gap: 4px; }
+  .cal-day-tab { padding: 6px 12px; font-size: 10px; }
+
+/* ── ANIME DETAIL MODAL ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-backdrop.open { opacity: 1; pointer-events: all; }
+.modal {
+  position: relative; width: 100%; max-width: 780px; max-height: 90vh;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius-lg); overflow: hidden;
+  display: flex; flex-direction: column;
+  transform: translateY(18px) scale(0.98); transition: transform 0.25s;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+}
+.modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+.modal-banner {
+  width: 100%; height: 220px; flex-shrink: 0;
+  position: relative; background: var(--bg3); overflow: hidden;
+}
+.modal-banner img {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block; transition: opacity 0.3s;
+}
+.modal-banner::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, var(--bg2) 100%);
+}
+.modal-close {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--border2); background: rgba(10,10,15,0.7);
+  color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; backdrop-filter: blur(4px);
+}
+.modal-close:hover { background: var(--bg3); color: var(--text); border-color: var(--text3); }
+.modal-body {
+  display: flex; gap: 20px; padding: 0 24px 24px;
+  overflow-y: auto; flex: 1; min-height: 0;
+  margin-top: -50px; position: relative; z-index: 1;
+}
+.modal-poster {
+  width: 110px; height: 158px; flex-shrink: 0;
+  border-radius: var(--radius); object-fit: cover;
+  border: 2px solid var(--border2); background: var(--bg3);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.modal-info { flex: 1; min-width: 0; padding-top: 54px; }
+.modal-title { font-size: 22px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; }
+.modal-stats {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 11px; color: var(--text2); margin-bottom: 12px;
+}
+.modal-stats .mscore { color: var(--accent); font-weight: 700; }
+.modal-stats .mssep { color: var(--text3); }
+.modal-status {
+  display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 99px;
+  border: 1px solid var(--border2); background: var(--bg3); color: var(--text2);
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.modal-status.airing { border-color: rgba(58,219,118,0.4); color: var(--green); background: rgba(58,219,118,0.08); }
+.modal-desc {
+  font-size: 13px; line-height: 1.7; color: var(--text2);
+  margin-bottom: 14px;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+.modal-genres { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.modal-genre {
+  font-size: 11px; padding: 3px 10px; border-radius: 99px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text2); font-family: var(--mono);
+}
+.modal-actions { display: flex; gap: 10px; align-items: center; }
+.modal-watch-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #111; font-family: var(--font);
+  font-weight: 700; font-size: 14px; padding: 10px 22px;
+  border-radius: var(--radius); border: none; cursor: pointer; text-decoration: none;
+  transition: all 0.15s;
+}
+.modal-watch-btn:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(200,216,50,0.3); }
+.modal-extra {
+  display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 14px;
+}
+.modal-extra-item {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.modal-extra-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text3);
+}
+.modal-extra-value {
+  font-family: var(--mono); font-size: 12px; color: var(--text2);
+}
+.modal-trailer-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; color: var(--text2); font-family: var(--font);
+  font-weight: 600; font-size: 13px; padding: 9px 16px;
+  border-radius: var(--radius); border: 1px solid var(--border2); cursor: pointer;
+  text-decoration: none; transition: all 0.15s;
+}
+.modal-trailer-btn:hover { border-color: var(--text2); color: var(--text); background: var(--bg3); }
+.modal-spinner {
+  width: 28px; height: 28px; border: 2px solid var(--border2);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: mspin 0.7s linear infinite; margin: 0 auto 12px;
+}
+@keyframes mspin { to { transform: rotate(360deg); } }
+
+@media (max-width: 580px) {
+  .modal-banner { height: 160px; }
+  .modal-body { flex-direction: column; gap: 12px; padding: 0 16px 20px; margin-top: -20px; }
+  .modal-poster { width: 80px; height: 115px; }
+  .modal-info { padding-top: 0; }
+  .modal-title { font-size: 18px; }
+}
+/* ── SIMULCAST CALENDAR PAGE ── */
+#calendarPage { display: none; }
+#calendarPage.visible { display: flex; flex-direction: column; min-height: calc(100vh - var(--topbar-h)); }
+#homePage.hidden { display: none; }
+
+.sc-layout {
+  display: flex; flex: 1; width: 100%; gap: 0;
+}
+
+/* ── SIDEBAR ── */
+.sc-sidebar {
+  width: 260px; flex-shrink: 0;
+  position: sticky; top: var(--topbar-h); height: calc(100vh - var(--topbar-h));
+  overflow-y: auto; border-right: 1px solid var(--border);
+  background: var(--bg2); display: flex; flex-direction: column;
+  scrollbar-width: none;
+}
+.sc-sidebar::-webkit-scrollbar { display: none; }
+
+.sc-sidebar-header {
+  padding: 20px 16px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.sc-sidebar-eyebrow {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--accent); display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.sc-live-ring {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(200,216,50,0.5); animation: liveRing 2s ease-out infinite;
+}
+@keyframes liveRing { 0%{box-shadow:0 0 0 0 rgba(200,216,50,0.5)} 70%{box-shadow:0 0 0 7px rgba(200,216,50,0)} 100%{box-shadow:0 0 0 0 rgba(200,216,50,0)} }
+.sc-sidebar-title { font-size: 14px; font-weight: 800; letter-spacing: -0.3px; }
+.sc-sidebar-sub { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 4px; }
+
+/* Week nav row */
+.sc-week-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.sc-week-label { font-family: var(--mono); font-size: 9px; color: var(--text2); flex: 1; text-align: center; }
+.sc-week-btn {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.sc-week-btn:hover { border-color: var(--accent); color: var(--accent); }
+.sc-week-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+
+/* 7-day list */
+.sc-day-list { flex: 1; padding: 6px 0; overflow-y: auto; scrollbar-width: none; }
+.sc-day-list::-webkit-scrollbar { display: none; }
+
+.sc-day-tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; cursor: pointer; transition: all 0.12s;
+  border-left: 3px solid transparent; color: var(--text2);
+}
+.sc-day-tab:hover { background: var(--bg3); color: var(--text); }
+.sc-day-tab.active { border-left-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.sc-day-tab.today-tab .sc-day-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.sc-day-tab.active .sc-day-dot { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+.sc-day-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bg4); flex-shrink: 0; transition: all 0.15s; }
+.sc-day-info { flex: 1; min-width: 0; }
+.sc-day-name-txt { font-size: 11px; font-weight: 700; letter-spacing: 0.01em; }
+.sc-day-date-txt { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 1px; }
+.sc-day-tab.active .sc-day-date-txt { color: rgba(200,216,50,0.6); }
+.sc-day-tab.today-tab.active .sc-day-name-txt { color: var(--accent); }
+.sc-day-count-badge {
+  font-family: var(--mono); font-size: 9px; padding: 2px 6px;
+  border-radius: 99px; background: var(--bg4); color: var(--text3);
+  border: 1px solid var(--border); flex-shrink: 0;
+}
+.sc-day-tab.active .sc-day-count-badge { background: rgba(200,216,50,0.12); color: var(--accent); border-color: rgba(200,216,50,0.25); }
+
+.sc-sidebar-footer {
+  padding: 10px 14px; border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 9px; color: var(--text3); flex-shrink: 0;
+}
+.sc-clock-time { font-size: 18px; font-weight: 700; color: var(--text2); letter-spacing: -0.5px; margin-top: 2px; }
+
+/* ── MAIN ── */
+.sc-main {
+  flex: 1; min-width: 0; overflow-y: auto; padding: 28px 28px 60px;
+  height: calc(100vh - var(--topbar-h)); scroll-behavior: smooth;
+}
+.sc-day-section { margin-bottom: 44px; scroll-margin-top: 20px; }
+.sc-day-hdr {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 20px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sc-day-name { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; }
+.sc-day-name.today  { color: var(--accent); }
+.sc-day-name.tomorrow { color: var(--text); }
+.sc-day-date { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.sc-day-ep-count { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-left: auto; }
+.sc-day-empty { font-family: var(--mono); font-size: 11px; color: var(--text3); padding: 20px 0; }
+
+/* Time groups */
+.sc-time-group { margin-bottom: 8px; }
+.sc-time-label {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  margin-bottom: 10px; letter-spacing: 0.05em;
+}
+.sc-time-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* NOW indicator */
+.sc-now-indicator {
+  display: flex; align-items: center; gap: 0;
+  margin: 16px 0 14px; scroll-margin-top: 24px;
+}
+.sc-now-indicator::before { content: ''; flex: none; width: 28px; height: 2px; background: var(--green); }
+.sc-now-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0;
+  box-shadow: 0 0 8px var(--green); animation: nowPulse 1.8s ease-in-out infinite;
+}
+@keyframes nowPulse { 0%,100%{opacity:1;box-shadow:0 0 6px var(--green)} 50%{opacity:0.7;box-shadow:0 0 14px var(--green)} }
+.sc-now-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--green);
+  letter-spacing: 0.08em; text-transform: uppercase; padding: 0 10px;
+}
+.sc-now-indicator::after { content: ''; flex: 1; height: 2px; background: linear-gradient(to right, var(--green), transparent); }
+
+/* Cards */
+.sc-card-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.sc-card {
+  width: 120px; cursor: pointer; transition: transform 0.15s;
+  position: relative;
+}
+.sc-card:hover { transform: translateY(-4px); }
+.sc-card:hover .sc-card-overlay { opacity: 1; }
+.sc-card-poster {
+  width: 120px; height: 170px; border-radius: var(--radius);
+  overflow: hidden; position: relative; background: var(--bg3);
+}
+.sc-card-poster img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; display: block; }
+.sc-card:hover .sc-card-poster img { transform: scale(1.04); }
+.sc-card.is-airing .sc-card-poster::before {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  border-radius: var(--radius); border: 2px solid var(--green);
+  box-shadow: inset 0 0 12px rgba(58,219,118,0.25); pointer-events: none;
+}
+.sc-card-overlay {
+  position: absolute; inset: 0; border-radius: var(--radius);
+  background: rgba(10,10,15,0.65); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  opacity: 0; transition: opacity 0.15s; z-index: 2;
+}
+.sc-card-play-btn {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.sc-card-play-btn svg { color: #111; margin-left: 2px; }
+.sc-card-overlay-ep { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+.sc-card-badge {
+  position: absolute; top: 7px; left: 7px; z-index: 3;
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  padding: 2px 7px; border-radius: 99px; letter-spacing: 0.06em;
+}
+.sc-card-badge.available { background: rgba(58,219,118,0.88); color: #0a200f; }
+.sc-card-badge.airing    { background: rgba(240,180,41,0.88); color: #1a1000; animation: badgePulse 1.5s infinite; }
+.sc-card-badge.upcoming  { background: rgba(20,20,30,0.88); color: var(--text3); border: 1px solid var(--border2); }
+@keyframes badgePulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+.sc-card-countdown {
+  position: absolute; bottom: 7px; left: 0; right: 0; z-index: 3;
+  text-align: center; font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+.sc-card-info { padding: 7px 2px 0; }
+.sc-card-title {
+  font-size: 11px; font-weight: 700; line-height: 1.35;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  margin-bottom: 2px;
+}
+.sc-card-ep-label { font-family: var(--mono); font-size: 9px; color: var(--text3); }
+
+/* Skeletons */
+.sc-skel-card { width: 120px; flex-shrink: 0; }
+.sc-skel-poster {
+  width: 120px; height: 170px; border-radius: var(--radius);
+  background: linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);
+  background-size: 600px 100%; animation: shimmer 1.4s infinite; margin-bottom: 8px;
+}
+.sc-skel-line {
+  height: 10px; border-radius: 4px; margin-bottom: 6px;
+  background: linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);
+  background-size: 600px 100%; animation: shimmer 1.4s infinite;
+}
+.sc-empty { font-family: var(--mono); font-size: 12px; color: var(--text3); padding: 40px 0; text-align: center; }
+
+@media (max-width: 600px) {
+  .sc-sidebar { display: none; }
+  .sc-main { padding: 16px 0; height: auto; }
+  .sc-layout { padding: 0 16px; }
+  .sc-card { width: 100px; }
+  .sc-card-poster { width: 100px; height: 142px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <a href="/" class="logo">YU<span>ZU</span></a>
+  <nav class="nav">
+    <a href="/" class="active" id="navHome">Home</a>
+    <a href="/watch">Watch</a>
+    <a href="#trending" id="navTrending">Trending</a>
+    <a href="#new" id="navNew">New</a>
+    <a href="#" id="navCalendar" class="nav-calendar-btn">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Simulcast
+    </a>
+  </nav>
+  <div class="topbar-search">
+    <svg class="ts-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input type="text" id="searchInput" placeholder="Search anime…" autocomplete="off" spellcheck="false">
+    <div class="ts-spinner" id="searchSpinner"></div>
+    <div class="ts-dropdown" id="dropdown"></div>
+  </div>
+  <div class="status-pill">
+    <span class="status-dot pulse" id="statusDot"></span>
+    <span id="statusText">checking…</span>
+  </div>
+</header>
+
+<div id="homePage">
+<div class="page">
+
+  <!-- HERO -->
+  <section class="hero" id="heroSection">
+    <div class="hero-bg" id="heroBg">
+      <img id="heroImg" src="" alt="">
+    </div>
+    <div class="hero-content" id="heroContent">
+      <div class="hero-badge" id="heroBadge">Popular This Season</div>
+      <h1 class="hero-title" id="heroTitle">Loading…</h1>
+      <div class="hero-meta" id="heroMeta"></div>
+      <p class="hero-desc" id="heroDesc"></p>
+      <div class="hero-actions">
+        <a href="#" class="btn-watch" id="heroWatchBtn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Watch Now
+        </a>
+        <button class="btn-more" id="heroMoreBtn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          More Info
+        </button>
+      </div>
+    </div>
+    <div class="hero-dots" id="heroDots"></div>
+    <button class="hero-arrow left" id="heroArrowL" aria-label="Previous">
+      <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="hero-arrow right" id="heroArrowR" aria-label="Next">
+      <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </section>
+
+
+  <!-- CONTINUE WATCHING -->
+  <section class="section" id="continueSection" style="display:none">
+    <div class="section-head">
+      <div class="section-title">Continue Watching <span class="tag">In Progress</span></div>
+      <a href="#" class="section-more" id="clearAllBtn">Clear all →</a>
+    </div>
+    <div class="scroll-row-wrap" id="continueRowWrap"><button class="row-arrow left" id="continueRowArrowL" aria-label="Scroll left"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button><div class="scroll-row" id="continueRow"></div><button class="row-arrow right" id="continueRowArrowR" aria-label="Scroll right"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+  </section>
+
+  <!-- TRENDING -->
+  <section class="section" id="trending">
+    <div class="section-head">
+      <div class="section-title">Trending <span class="tag">Live</span></div>
+    </div>
+    <div class="scroll-row-wrap" id="trendingRowWrap"><button class="row-arrow left" id="trendingRowArrowL" aria-label="Scroll left"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button><div class="scroll-row" id="trendingRow">
+      <!-- skeleton -->
+    </div><button class="row-arrow right" id="trendingRowArrowR" aria-label="Scroll right"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+  </section>
+
+  <!-- TOP RANKED -->
+  <section class="section" id="rankedSection">
+    <div class="section-head">
+      <div class="section-title">Top Ranked <span class="tag">All Time</span></div>
+    </div>
+    <div class="scroll-row-wrap" id="rankedRowWrap"><button class="row-arrow left" id="rankedRowArrowL" aria-label="Scroll left"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button><div class="scroll-row" id="rankedRow"></div><button class="row-arrow right" id="rankedRowArrowR" aria-label="Scroll right"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+  </section>
+
+  <!-- RECENTLY UPDATED -->
+  <section class="section" id="new">
+    <div class="section-head">
+      <div class="section-title">Recently Updated <span class="tag">New Eps</span></div>
+    </div>
+    <div class="scroll-row-wrap" id="recentRowWrap"><button class="row-arrow left" id="recentRowArrowL" aria-label="Scroll left"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button><div class="scroll-row" id="recentRow"></div><button class="row-arrow right" id="recentRowArrowR" aria-label="Scroll right"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+  </section>
+
+  <!-- BROWSE ALL GRID -->
+  <section class="section" style="padding-top:36px;">
+    <div class="section-head">
+      <div class="section-title">Browse <span class="tag" id="browseTag">All</span></div>
+      <span class="section-more" id="browseCount"></span>
+    </div>
+    <div class="genre-row" id="genreRow">
+      <a href="#" class="genre-pill active" data-genre="all">All</a>
+      <a href="#" class="genre-pill" data-genre="action">Action</a>
+      <a href="#" class="genre-pill" data-genre="adventure">Adventure</a>
+      <a href="#" class="genre-pill" data-genre="romance">Romance</a>
+      <a href="#" class="genre-pill" data-genre="comedy">Comedy</a>
+      <a href="#" class="genre-pill" data-genre="drama">Drama</a>
+      <a href="#" class="genre-pill" data-genre="fantasy">Fantasy</a>
+      <a href="#" class="genre-pill" data-genre="thriller">Thriller</a>
+      <a href="#" class="genre-pill" data-genre="mystery">Mystery</a>
+      <a href="#" class="genre-pill" data-genre="slice-of-life">Slice of Life</a>
+      <a href="#" class="genre-pill" data-genre="sci-fi">Sci-Fi</a>
+      <a href="#" class="genre-pill" data-genre="supernatural">Supernatural</a>
+      <a href="#" class="genre-pill" data-genre="psychological">Psychological</a>
+      <a href="#" class="genre-pill" data-genre="horror">Horror</a>
+      <a href="#" class="genre-pill" data-genre="sports">Sports</a>
+      <a href="#" class="genre-pill" data-genre="mecha">Mecha</a>
+      <a href="#" class="genre-pill" data-genre="historical">Historical</a>
+      <a href="#" class="genre-pill" data-genre="isekai">Isekai</a>
+      <a href="#" class="genre-pill" data-genre="martial-arts">Martial Arts</a>
+      <a href="#" class="genre-pill" data-genre="mahou-shoujo">Mahou Shoujo</a>
+      <a href="#" class="genre-pill" data-genre="music">Music</a>
+    </div>
+  </section>
+  <div class="anime-grid" id="browseGrid"></div>
+
+  <footer class="footer">
+    <div class="footer-logo">YU<span>ZU</span></div>
+    <div class="footer-copy">Powered by AnimePahe &nbsp;·&nbsp; Not for commercial use</div>
+  </footer>
+</div>
+</div><!-- end homePage -->
+
+<!-- ── SIMULCAST CALENDAR PAGE ── -->
+<div id="calendarPage" class="page">
+  <div class="sc-layout">
+
+    <!-- SIDEBAR: always shows all 7 days of current week -->
+    <aside class="sc-sidebar" id="calSidebar">
+      <div class="sc-sidebar-header">
+        <div class="sc-sidebar-eyebrow"><span class="sc-live-ring"></span>Simulcast</div>
+        <div class="sc-sidebar-title">Airing Calendar</div>
+        <div class="sc-sidebar-sub" id="calSeasonLabel">Loading…</div>
+      </div>
+      <div class="sc-week-nav">
+        <button class="sc-week-btn" id="calPrevWeek" disabled title="Previous week">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="sc-week-label" id="calWeekLabel">—</div>
+        <button class="sc-week-btn" id="calNextWeek" title="Next week">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div class="sc-day-list" id="calDayTabs"></div>
+      <div class="sc-sidebar-footer">
+        <div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;font-family:var(--mono);color:var(--text3);margin-bottom:4px">Local time</div>
+        <div class="sc-clock-time" id="scClockEl">--:--</div>
+        <div style="margin-top:8px;line-height:1.6">Times in your timezone<br>Data · AniList GraphQL</div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="sc-main" id="calMain">
+      <div id="calSkel" style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:80%"></div><div class="sc-skel-line" style="width:55%"></div></div>
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:70%"></div><div class="sc-skel-line" style="width:45%"></div></div>
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:85%"></div><div class="sc-skel-line" style="width:60%"></div></div>
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:65%"></div><div class="sc-skel-line" style="width:50%"></div></div>
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:75%"></div><div class="sc-skel-line" style="width:40%"></div></div>
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:90%"></div><div class="sc-skel-line" style="width:55%"></div></div>
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:60%"></div><div class="sc-skel-line" style="width:45%"></div></div>
+        <div class="sc-skel-card"><div class="sc-skel-poster"></div><div class="sc-skel-line" style="width:80%"></div><div class="sc-skel-line" style="width:50%"></div></div>
+      </div>
+      <div id="calContent" style="display:none"></div>
+      <footer class="footer" style="padding-left:0;padding-right:0;margin-top:auto">
+        <div class="footer-logo">YU<span>ZU</span></div>
+        <div class="footer-copy">Data via AniList GraphQL &nbsp;·&nbsp; Not for commercial use</div>
+      </footer>
+    </main>
+
+  </div>
+</div>
+
+<!-- ANIME DETAIL MODAL -->
+<div class="modal-backdrop" id="animeModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal" id="animeModalBox">
+    <button class="modal-close" id="modalClose" aria-label="Close">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div id="modalContent">
+      <div class="modal-loading"><div class="modal-spinner"></div>Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function toast(msg, type='warn', dur=3500) {
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = '<span>' + ({err:'✕',ok:'✓',warn:'⚠'}[type]||'●') + '</span><span>' + esc(msg) + '</span>';
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), dur);
+}
+// ── TITLE ALIAS MAP ───────────────────────────────────────────────────────────
+// Maps display/English titles → exact scraper-compatible romaji/provider titles.
+// Used silently — the user always sees the original English title in the UI.
+// When an alias is used, similarity gating is bypassed and the top result is
+// trusted directly (since we're searching with a provider-exact query).
+//
+// To add more aliases: append { match: /regex/i, alias: 'Provider Title' }
+const TITLE_ALIAS_MAP = [
+  {
+    // Re:ZERO Season 4 — provider only finds it via romaji
+    match: /re.?zero.{0,60}season\s*4/i,
+    alias: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
+  },
+];
+
+// Returns { searchTitle, aliased } — aliased=true means skip similarity gate
+function resolveSearchTitle(title) {
+  for (const entry of TITLE_ALIAS_MAP) {
+    if (entry.match.test(title)) {
+      return { searchTitle: entry.alias, aliased: true };
+    }
+  }
+  return { searchTitle: title, aliased: false };
+}
+
+// Shared text-matching helpers used by goWatch / goWatchEpisode / checkAvailable
+function _norm(s) {
+  return (s || '').toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function _bigrams(s) {
+  const set = new Set();
+  for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
+  return set;
+}
+function _similarity(a, b) {
+  if (a === b) return 1;
+  if (!a || !b) return 0;
+  const ba = _bigrams(a), bb = _bigrams(b);
+  let x = 0;
+  ba.forEach(bg => { if (bb.has(bg)) x++; });
+  return (2 * x) / (ba.size + bb.size);
+}
+
+// Pick the best result from a /search response.
+// When aliased=true the query was a provider-exact romaji title, so just take [0].
+// When aliased=false use bigram scoring + a 0.72 similarity floor to reject spin-offs.
+function _pickBest(results, searchTitle, aliased, targetYear) {
+  if (aliased) return results[0]; // trust the provider-exact query
+  const normTarget = _norm(searchTitle);
+  function score(r) {
+    let s = _similarity(normTarget, _norm(r.title || ''));
+    if (targetYear && r.year) {
+      if (r.year === targetYear) s += 0.3;
+      else s -= 0.15 * Math.min(1, Math.abs(r.year - targetYear) / 4);
+    }
+    return s;
+  }
+  const sorted = results.slice().sort((a, b) => score(b) - score(a));
+  const best = sorted[0];
+  const rawSim = _similarity(normTarget, _norm(best.title || ''));
+  return rawSim >= 0.72 ? best : null;
+}
+
+async function goWatch(anime) {
+  const session = anime.anime_session || anime.session || '';
+  if (session) {
+    window.location.href = '/watch?session=' + encodeURIComponent(session)
+      + '&title=' + encodeURIComponent(anime.title || '');
+    return;
+  }
+  const displayTitle = anime.title || '';
+  if (!displayTitle) return;
+  const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
+  try {
+    toast('Searching for ' + displayTitle + '…', 'warn', 4000);
+    const res = await fetch('/search?q=' + encodeURIComponent(searchTitle));
+    const results = await res.json();
+    if (!Array.isArray(results) || !results.length) {
+      toast('Not found on AnimePahe', 'err'); return;
+    }
+    const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
+    window.location.href = '/watch?session=' + encodeURIComponent(best.session || best.anime_session || '')
+      + '&title=' + encodeURIComponent(displayTitle) // keep English title in URL for player display
+      + (best.poster ? '&poster=' + encodeURIComponent(best.poster) : '');
+  } catch(_) {
+    toast('Could not reach server', 'err');
+  }
+}
+
+// Like goWatch but appends &episode=N so the player opens a specific episode directly.
+async function goWatchEpisode(anime, episode) {
+  const session = anime.anime_session || anime.session || '';
+  const epParam = episode ? '&episode=' + encodeURIComponent(episode) : '';
+  if (session) {
+    window.location.href = '/watch?session=' + encodeURIComponent(session)
+      + '&title=' + encodeURIComponent(anime.title || '') + epParam;
+    return;
+  }
+  const displayTitle = anime.title || '';
+  if (!displayTitle) return;
+  const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
+  try {
+    toast('Searching for ' + displayTitle + '…', 'warn', 4000);
+    const res = await fetch('/search?q=' + encodeURIComponent(searchTitle));
+    const results = await res.json();
+    if (!Array.isArray(results) || !results.length) { toast('Not found on AnimePahe', 'err'); return; }
+    const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
+    window.location.href = '/watch?session=' + encodeURIComponent(best.session || best.anime_session || '')
+      + '&title=' + encodeURIComponent(displayTitle)
+      + (best.poster ? '&poster=' + encodeURIComponent(best.poster) : '')
+      + epParam;
+  } catch(_) { toast('Could not reach server', 'err'); }
+}
+
+// ── HEALTH ────────────────────────────────────────────────────────────────────
+async function checkHealth() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  try {
+    const r = await fetch('/health', { signal: AbortSignal.timeout(4000) });
+    const d = await r.json();
+    if (r.ok && d.status === 'ok') {
+      dot.className = 'status-dot green'; txt.textContent = 'API online'; return;
+    }
+  } catch(_) {}
+  dot.className = 'status-dot red'; txt.textContent = 'API offline';
+}
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+const searchInput = document.getElementById('searchInput');
+const dropdown    = document.getElementById('dropdown');
+const spinner     = document.getElementById('searchSpinner');
+let searchTimer = null, focusIdx = -1, ddItems = [];
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = searchInput.value.trim();
+  if (!q) { closeDD(); return; }
+  searchTimer = setTimeout(() => doSearch(q), 360);
+});
+searchInput.addEventListener('keydown', e => {
+  if (!dropdown.classList.contains('open')) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); moveFocus(-1); }
+  if (e.key === 'Enter') { const el = ddItems[focusIdx] || ddItems[0]; if (el) el.click(); }
+  if (e.key === 'Escape') closeDD();
+});
+document.addEventListener('click', e => { if (!e.target.closest('.topbar-search')) closeDD(); });
+
+function moveFocus(dir) {
+  if (!ddItems.length) return;
+  ddItems.forEach(el => el.classList.remove('focused'));
+  focusIdx = Math.max(0, Math.min(ddItems.length - 1, focusIdx + dir));
+  ddItems[focusIdx].classList.add('focused');
+  ddItems[focusIdx].scrollIntoView({ block: 'nearest' });
+}
+function closeDD() {
+  dropdown.classList.remove('open'); dropdown.innerHTML = '';
+  ddItems = []; focusIdx = -1;
+}
+async function doSearch(q) {
+  spinner.classList.add('active');
+  dropdown.innerHTML = '<div class="dd-empty">Searching…</div>';
+  dropdown.classList.add('open');
+  focusIdx = -1; ddItems = [];
+  try {
+    const { searchTitle, aliased } = resolveSearchTitle(q);
+
+    // If an alias exists, query the provider with the romaji title.
+    // Otherwise query normally. In both cases also run the original user
+    // query in parallel so we surface anything the alias might miss.
+    const fetches = [fetch('/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => [])];
+    if (aliased) {
+      // Also search the original English query in case the provider indexes both
+      fetches.push(fetch('/search?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => []));
+    }
+    const [primary, secondary] = await Promise.all(fetches);
+
+    // Merge, deduplicate by session
+    const seen = new Set();
+    const data = [];
+    for (const item of [...(primary||[]), ...(secondary||[])]) {
+      const key = item.session || item.anime_session || item.id || item.title;
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      data.push(item);
+    }
+
+    dropdown.innerHTML = '';
+    if (!data.length) {
+      dropdown.innerHTML = '<div class="dd-empty">No results found</div>';
+    } else {
+      data.forEach((item, i) => {
+        const el = document.createElement('div');
+        el.className = 'dd-item' + (i === 0 ? ' focused' : '');
+        el.innerHTML =
+          '<img src="' + BLANK + '" style="background:var(--bg3)" loading="lazy">' +
+          '<div class="dd-info"><div class="dd-title">' + esc(item.title) + '</div>' +
+          '<div class="dd-meta">Ep ' + esc(item.episode||'') + ' · ' + esc(item.type||'TV') + '</div></div>' +
+          '<span class="dd-badge">' + esc(item.type||'TV') + '</span>';
+        // Click navigates directly by session — no secondary search needed
+        el.addEventListener('click', () => {
+          closeDD();
+          window.location.href = '/watch?session=' + encodeURIComponent(item.session||item.anime_session||'')
+            + '&title=' + encodeURIComponent(item.title||'')
+            + (item.poster ? '&poster=' + encodeURIComponent(item.poster) : '');
+        });
+        dropdown.appendChild(el);
+        ddItems.push(el);
+        swapImgCover(el.querySelector('img'), item.session||item.anime_session||'', item.title||null);
+      });
+      focusIdx = 0;
+    }
+  } catch {
+    dropdown.innerHTML = '<div class="dd-empty">Search failed</div>';
+  }
+  spinner.classList.remove('active');
+}
+
+// ── SKELETONS ─────────────────────────────────────────────────────────────────
+function renderSkeletons(containerId, count) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    c.innerHTML += '<div class="skel-card"><div class="skel skel-poster"></div><div class="skel skel-line w80"></div><div class="skel skel-line w60"></div></div>';
+  }
+}
+
+// ── ANIME CARD BUILDER ────────────────────────────────────────────────────────
+function makeAnimeCard(item) {
+  const div = document.createElement('div');
+  div.className = 'a-card fade-in';
+  div.innerHTML =
+    '<div class="a-card-img-wrap">' +
+      '<img src="' + BLANK + '" style="background:var(--bg3)" loading="lazy">' +
+      '<div class="a-card-overlay">' +
+        '<button class="a-card-info-btn" title="More info" aria-label="More info">' +
+          '<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+        '</button>' +
+        '<div class="a-card-overlay-inner">' +
+          '<div class="a-card-play"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>' +
+          '<div class="a-card-quickinfo" id="qi-' + esc((item.anime_session||item.session||'').replace(/[^a-z0-9]/gi,'')) + '"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="a-info">' +
+      '<div class="a-title">' + esc(item.title) + '</div>' +
+    '</div>';
+  const session = item.anime_session || item.session || '';
+  div.querySelector('.a-card-play').addEventListener('click', e => { e.stopPropagation(); goWatch(item); });
+  div.querySelector('.a-card-info-btn').addEventListener('click', e => { e.stopPropagation(); openModalForSession(session, item.title, item); });
+  div.addEventListener('click', () => goWatch(item));
+  const img = div.querySelector('.a-card-img-wrap img');
+  swapImgCover(img, session, item.title||null);
+  // Populate quickinfo asynchronously
+  getCoverData(session, item.title || null).then(data => {
+    if (!data || !div.isConnected) return;
+    const qi = div.querySelector('.a-card-quickinfo');
+    if (!qi) return;
+    const parts = [];
+    if (data.score) parts.push('<span class="qi-score">★ ' + esc(data.score) + '</span>');
+    if (data.format) parts.push('<span class="qi-sep">·</span><span>' + esc(fmtFormat(data.format)) + '</span>');
+    if (data.seasonYear) parts.push('<span class="qi-sep">·</span><span>' + esc(String(data.seasonYear)) + '</span>');
+    qi.innerHTML = parts.join('');
+  });
+  return div;
+}
+
+function makeWideCard(item) {
+  const div = document.createElement('div');
+  div.className = 'wide-card fade-in';
+  div.innerHTML =
+    '<div class="wide-card-banner-wrap"><img src="' + esc(item.snapshot||'') + '" onerror="this.style.background=\'var(--bg3)\'" loading="lazy"></div>' +
+    '<div class="wide-card-body">' +
+      '<div class="wide-card-title">' + esc(item.title) + '</div>' +
+      '<div class="wide-card-meta">Episode ' + esc(item.episode||'') + '</div>' +
+      '<div class="wide-card-ep">Latest episode available</div>' +
+    '</div>';
+  div.addEventListener('click', () => goWatchEpisode(item, item.episode));
+  // recently updated uses scraper snapshot directly
+  return div;
+}
+
+function makeRankCard(item, rank) {
+  const div = document.createElement('div');
+  div.className = 'rank-card fade-in';
+  div.innerHTML =
+    '<div class="rank-num">' + rank + '</div>' +
+    '<img class="rank-img" src="' + BLANK + '" style="background:var(--bg3)" loading="lazy">' +
+    '<div class="rank-info">' +
+      '<div class="rank-title">' + esc(item.title) + '</div>' +
+    '</div>';
+  div.addEventListener('click', () => goWatch(item));
+  swapImgCover(div.querySelector('.rank-img'), item.anime_session||item.session||'', item.title||null);
+  return div;
+}
+
+// ── CONTINUE WATCHING ─────────────────────────────────────────────────────────
+function loadContinueWatching() {
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem('yuzu_history') || '[]'); } catch(_) {}
+  const section = document.getElementById('continueSection');
+  const row = document.getElementById('continueRow');
+  if (!history.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  row.innerHTML = '';
+  history.slice(0, 10).forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'continue-card fade-in';
+    const pct = item.progress || 0;
+    div.innerHTML =
+      '<div class="continue-card-thumb">' +
+        '<img src="' + BLANK + '" style="background:var(--bg3)" loading="lazy">' +
+        '<div class="continue-progress"><div class="continue-progress-bar" style="width:' + pct + '%"></div></div>' +
+      '</div>' +
+      '<div class="continue-body">' +
+        '<div class="continue-title">' + esc(item.title) + '</div>' +
+        '<div class="continue-ep">Episode ' + (item.episode||1) + '</div>' +
+      '</div>' +
+      '<button class="continue-clear" title="Remove" onclick="removeContinue(\'' + esc(item.session) + '\',event)">✕</button>';
+    div.addEventListener('click', () => goWatch(item));
+    row.appendChild(div);
+    swapImgCover(div.querySelector('img'), item.anime_session||item.session||'', item.title||null);
+  });
+  document.getElementById('clearAllBtn').addEventListener('click', e => {
+    e.preventDefault();
+    localStorage.removeItem('yuzu_history');
+    section.style.display = 'none';
+  });
+}
+function removeContinue(session, e) {
+  e.stopPropagation();
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem('yuzu_history') || '[]'); } catch(_) {}
+  history = history.filter(h => h.session !== session);
+  localStorage.setItem('yuzu_history', JSON.stringify(history));
+  loadContinueWatching();
+}
+
+// ── LOAD SECTIONS ─────────────────────────────────────────────────────────────
+let heroItems = [];
+let heroIdx = 0;
+let heroTimer = null;
+
+// ── HERO BANNER ───────────────────────────────────────────────────────────────
+function setHero(idx) {
+  if (!heroItems.length) return;
+  heroIdx = ((idx % heroItems.length) + heroItems.length) % heroItems.length;
+  const item = heroItems[heroIdx];
+
+  // Update dots
+  const dots = document.querySelectorAll('.hero-dot');
+  dots.forEach((d, i) => d.classList.toggle('active', i === heroIdx));
+
+  // Crossfade image — only use AniList banner/cover, never scraper snapshot
+  const img = document.getElementById('heroImg');
+  const src = item.banner || item.cover || '';
+  img.style.opacity = '0';
+  setTimeout(() => {
+    if (!img.isConnected) return;
+    img.src = src;
+    if (src) img.style.opacity = '1';
+  }, 200);
+
+  setHeroText(heroIdx);
+}
+
+// Set title/meta/button without touching the image
+function setHeroText(idx) {
+  if (!heroItems.length) return;
+  const i = ((idx % heroItems.length) + heroItems.length) % heroItems.length;
+  const item = heroItems[i];
+  document.getElementById('heroTitle').textContent = item.title || '';
+  document.getElementById('heroDesc').textContent = item.description || '';
+  const meta = document.getElementById('heroMeta');
+  const metaParts = [];
+  if (item.score)      metaParts.push('<span class="hero-score">★ ' + esc(item.score) + '</span>');
+  if (item.format)     metaParts.push('<span>' + esc(fmtFormat(item.format)) + '</span>');
+  if (item.seasonYear) metaParts.push('<span>' + esc(String(item.seasonYear)) + '</span>');
+  if (item.status === 'RELEASING') metaParts.push('<span style="color:var(--green)">Airing</span>');
+  meta.innerHTML = metaParts.map((p, i) => i < metaParts.length - 1 ? p + '<span class="sep">·</span>' : p).join('');
+  // Hero Watch Now → use goWatch (handles session or title-search)
+  const session = item.anime_session || item.session || '';
+  const heroBtn = document.getElementById('heroWatchBtn');
+  heroBtn.href = '#';
+  heroBtn.onclick = e => { e.preventDefault(); goWatch(item); };
+}
+
+function clearHeroTimer() { clearInterval(heroTimer); heroTimer = null; }
+function startHeroTimer() {
+  clearHeroTimer();
+  heroTimer = setInterval(() => setHero(heroIdx + 1), 6000);
+}
+
+document.getElementById('heroSection').addEventListener('mouseenter', clearHeroTimer);
+document.getElementById('heroSection').addEventListener('mouseleave', startHeroTimer);
+
+document.getElementById('heroArrowL').addEventListener('click', () => { clearHeroTimer(); setHero(heroIdx - 1); startHeroTimer(); });
+document.getElementById('heroArrowR').addEventListener('click', () => { clearHeroTimer(); setHero(heroIdx + 1); startHeroTimer(); });
+
+// ── FORMAT HELPERS ────────────────────────────────────────────────────────────
+function fmtFormat(f) {
+  if (!f) return '';
+  const map = { TV:'TV', TV_SHORT:'TV Short', MOVIE:'Movie', SPECIAL:'Special', OVA:'OVA', ONA:'ONA', MUSIC:'Music' };
+  return map[f] || f;
+}
+function fmtSeason(season, year) {
+  if (!season && !year) return null;
+  const s = season ? season.charAt(0) + season.slice(1).toLowerCase() : '';
+  return [s, year].filter(Boolean).join(' ');
+}
+function fmtSource(s) {
+  if (!s) return null;
+  const map = { ORIGINAL:'Original', MANGA:'Manga', LIGHT_NOVEL:'Light Novel', VISUAL_NOVEL:'Visual Novel', VIDEO_GAME:'Video Game', OTHER:'Other', NOVEL:'Novel', DOUJINSHI:'Doujinshi', ANIME:'Anime', WEB_NOVEL:'Web Novel', LIVE_ACTION:'Live Action', GAME:'Game', COMIC:'Comic', MULTIMEDIA_PROJECT:'Multimedia', PICTURE_BOOK:'Picture Book' };
+  return map[s] || s;
+}
+
+// ── ANIME DETAIL MODAL ────────────────────────────────────────────────────────
+const animeModal    = document.getElementById('animeModal');
+const modalContent  = document.getElementById('modalContent');
+
+function openModal(item) {
+  clearHeroTimer();
+  openModalWithData(item, true);
+}
+
+function openModalWithData(item, fromHero) {
+  modalContent.innerHTML = '<div class="modal-loading"><div class="modal-spinner"></div>Loading…</div>';
+  animeModal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  const session = item.anime_session || item.session || '';
+  const watchHref = buildWatchHref(item);
+
+  // Only skip the fetch if the item already has rich data (cover/banner + description + metadata)
+  const alreadyRich = (item.cover || item.banner) && item.description && item.studio !== undefined;
+  if (alreadyRich) {
+    renderModal(item, watchHref);
+    return;
+  }
+
+  getCoverData(session, item.title || null).then(data => {
+    if (data) Object.assign(item, data);
+    renderModal(item, watchHref);
+  });
+}
+
+function openModalForSession(session, title, item) {
+  openModalWithData(item || { session, title });
+}
+
+function buildWatchHref(item) {
+  const session = item.anime_session || item.session || '';
+  return '/watch?session=' + encodeURIComponent(session) + '&title=' + encodeURIComponent(item.title || '') + (item.cover ? '&poster=' + encodeURIComponent(item.cover) : '');
+}
+
+function renderModal(item, watchHref) {
+  const statusLabel = item.status
+    ? item.status.replace(/_/g,' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+    : null;
+  const isAiring = item.status === 'RELEASING';
+  const season   = fmtSeason(item.season, item.seasonYear);
+  const source   = fmtSource(item.source);
+  const format   = fmtFormat(item.format);
+  const trailerUrl = item.trailer ? 'https://www.youtube.com/watch?v=' + encodeURIComponent(item.trailer) : null;
+
+  // Accent color tint on banner
+  const accentColor = item.color || null;
+  const bannerStyle = accentColor
+    ? `style="background:linear-gradient(135deg,${accentColor}55 0%,var(--bg3) 100%)"`
+    : '';
+
+  const extraItems = [
+    format              ? { label: 'Format',   value: format }                       : null,
+    season              ? { label: 'Season',   value: season }                       : null,
+    item.episodes       ? { label: 'Episodes', value: item.episodes } : { label: 'Episodes', value: '?' },
+    item.duration       ? { label: 'Duration', value: item.duration + ' min/ep' }   : null,
+    item.studio         ? { label: 'Studio',   value: item.studio }                 : null,
+    source              ? { label: 'Source',   value: source }                      : null,
+  ].filter(Boolean);
+
+  modalContent.innerHTML = `
+    <div class="modal-banner" ${bannerStyle}>
+      <img id="modalBannerImg" src="${esc(item.banner || item.cover || '')}" alt="" onerror="this.style.display='none'">
+    </div>
+    <div class="modal-body">
+      <img class="modal-poster" src="${esc(item.cover || item.banner || '')}" alt="${esc(item.title || '')}" onerror="this.style.visibility='hidden'">
+      <div class="modal-info">
+        <h2 class="modal-title" id="modalTitle">${esc(item.title || '')}</h2>
+        <div class="modal-stats">
+          ${item.score ? `<span class="mscore">★ ${esc(item.score)}</span><span class="mssep">·</span>` : ''}
+          ${statusLabel ? `<span class="modal-status${isAiring ? ' airing' : ''}">${esc(statusLabel)}</span>` : ''}
+        </div>
+
+        ${extraItems.length ? `
+        <div class="modal-extra">
+          ${extraItems.map(e => `
+            <div class="modal-extra-item">
+              <span class="modal-extra-label">${esc(e.label)}</span>
+              <span class="modal-extra-value">${esc(String(e.value))}</span>
+            </div>`).join('')}
+        </div>` : ''}
+
+        ${item.description ? `<p class="modal-desc">${esc(item.description)}</p>` : ''}
+
+        ${(item.genres && item.genres.length) ? `
+          <div class="modal-genres">
+            ${item.genres.slice(0, 7).map(g => `<span class="modal-genre">${esc(g)}</span>`).join('')}
+          </div>` : ''}
+
+        <div class="modal-actions">
+          ${item.title
+            ? `<button class="modal-watch-btn" id="modalWatchNowBtn">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Watch Now
+              </button>` : ''}
+          ${trailerUrl ? `<a class="modal-trailer-btn" href="${esc(trailerUrl)}" target="_blank" rel="noopener">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Trailer
+          </a>` : ''}
+        </div>
+      </div>
+    </div>`;
+
+  // Wire Watch Now — jump to specific episode when opened from the simulcast calendar
+  const watchBtn = document.getElementById('modalWatchNowBtn');
+  if (watchBtn) watchBtn.addEventListener('click', () => {
+    if (item._calEpisode) goWatchEpisode(item, item._calEpisode);
+    else goWatch(item);
+  });
+}
+
+function closeModal() {
+  animeModal.classList.remove('open');
+  document.body.style.overflow = '';
+  startHeroTimer();
+}
+
+document.getElementById('heroMoreBtn').addEventListener('click', () => {
+  if (heroItems.length) openModalWithData(heroItems[heroIdx]);
+});
+document.getElementById('modalClose').addEventListener('click', closeModal);
+animeModal.addEventListener('click', e => { if (e.target === animeModal) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && animeModal.classList.contains('open')) closeModal(); });
+
+// ── ANILIST COVER CACHE ──────────────────────────────────────────────────────
+// Cache maps anime_session -> Promise<{cover,banner,description,score}|null>
+// ── IMAGE CACHE: batch AniList ──────────────────────────────────────────────────
+const _coverCache = {};
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+async function _batchAniList(idMap) {
+  const entries = Object.entries(idMap);
+  if (!entries.length) return {};
+  const fields = 'bannerImage coverImage{extraLarge large color} averageScore synopsis:description(asHtml:false) genres episodes status(version:2) format seasonYear season duration source(version:3) studios(isMain:true){nodes{name}} trailer{id site}';
+  const aliases = entries.map(([,id],i) => 'a'+i+':Media(id:'+id+',type:ANIME){'+fields+'}').join(' ');
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{'+aliases+'}' })
+    });
+    const json = await res.json();
+    const out = {};
+    entries.forEach(([session],i) => {
+      const m = json.data && json.data['a'+i];
+      if (!m) return;
+      const cover = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || null;
+      out[session] = {
+        cover, banner: m.bannerImage || cover || null,
+        color: (m.coverImage && m.coverImage.color) || null,
+        score: m.averageScore ? (m.averageScore/10).toFixed(1) : null,
+        description: m.synopsis ? m.synopsis.replace(/<[^>]+>/g,'') : '',
+        genres: m.genres || [],
+        episodes: m.episodes || null,
+        status: m.status || null,
+        format: m.format || null,
+        seasonYear: m.seasonYear || null,
+        season: m.season || null,
+        duration: m.duration || null,
+        source: m.source || null,
+        studio: (m.studios && m.studios.nodes && m.studios.nodes[0] && m.studios.nodes[0].name) || null,
+        trailer: (m.trailer && m.trailer.site === 'youtube') ? m.trailer.id : null,
+      };
+    });
+    return out;
+  } catch(_) { return {}; }
+}
+
+// ── COVER DATA: AniList first, Jikan only as last resort ──────────────────────
+
+const _coverFailed = new Set();
+
+const _AL_FIELDS = 'bannerImage coverImage{extraLarge large color} averageScore synopsis:description(asHtml:false) genres episodes status(version:2) format seasonYear season duration source(version:3) studios(isMain:true){nodes{name}} trailer{id site}';
+
+function _parseAL(m) {
+  if (!m) return null;
+  const cover = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || null;
+  if (!cover) return null;
+  return {
+    cover, banner: m.bannerImage || cover,
+    color: (m.coverImage && m.coverImage.color) || null,
+    score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+    description: m.synopsis ? m.synopsis.replace(/<[^>]+>/g, '') : '',
+    genres: m.genres || [],
+    episodes: m.episodes || null,
+    status: m.status || null,
+    format: m.format || null,
+    seasonYear: m.seasonYear || null,
+    season: m.season || null,
+    duration: m.duration || null,
+    source: m.source || null,
+    studio: (m.studios && m.studios.nodes && m.studios.nodes[0] && m.studios.nodes[0].name) || null,
+    trailer: (m.trailer && m.trailer.site === 'youtube') ? m.trailer.id : null,
+  };
+}
+
+// Batch AniList lookup by ID. One GraphQL request for all.
+// { session -> anilistId } → { session -> data }
+async function _batchAniList(idMap) {
+  const entries = Object.entries(idMap);
+  if (!entries.length) return {};
+  const aliases = entries.map(([, id], i) => `a${i}:Media(id:${id},type:ANIME){${_AL_FIELDS}}`).join(' ');
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{' + aliases + '}' })
+    });
+    const json = await res.json();
+    const out = {};
+    entries.forEach(([session], i) => {
+      const d = _parseAL(json.data && json.data['a' + i]);
+      if (d) out[session] = d;
+    });
+    return out;
+  } catch (_) { return {}; }
+}
+
+// Batch AniList title search. One GraphQL request for all misses.
+// Uses aliased Page queries — each alias is independent so one no-match
+// does NOT affect others (Page returns empty array, never errors).
+// { session -> title } → { session -> data }
+async function _batchAniListByTitle(titleMap) {
+  const entries = Object.entries(titleMap);
+  if (!entries.length) return {};
+  // Each alias: p0:Page(page:1,perPage:1){media(search:"...",type:ANIME){...}}
+  const aliases = entries.map(([, title], i) =>
+    `p${i}:Page(page:1,perPage:1){media(search:${JSON.stringify(title)},type:ANIME,sort:SEARCH_MATCH){${_AL_FIELDS}}}`
+  ).join(' ');
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{' + aliases + '}' })
+    });
+    const json = await res.json();
+    const out = {};
+    entries.forEach(([session], i) => {
+      const page = json.data && json.data['p' + i];
+      const m = page && page.media && page.media[0];
+      const d = _parseAL(m);
+      if (d) out[session] = d;
+    });
+    return out;
+  } catch (_) { return {}; }
+}
+
+// Jikan (MAL) — absolute last resort, only when AniList has nothing.
+// Stagger calls to respect Jikan's ~3 req/sec rate limit.
+async function _fetchJikan(title) {
+  if (!title) return null;
+  try {
+    const res = await fetch('https://api.jikan.moe/v4/anime?q=' + encodeURIComponent(title) + '&limit=1&sfw');
+    const json = await res.json();
+    const m = json.data && json.data[0];
+    if (!m) return null;
+    const cover = (m.images && m.images.jpg && (m.images.jpg.large_image_url || m.images.jpg.image_url)) || null;
+    if (!cover) return null;
+    const fmtMap = { tv: 'TV', movie: 'Movie', ova: 'OVA', ona: 'ONA', special: 'Special', music: 'Music', tv_special: 'Special' };
+    const seasonMap = { spring: 'SPRING', summer: 'SUMMER', fall: 'FALL', winter: 'WINTER' };
+    return {
+      cover, banner: cover, color: null,
+      score: m.score ? String(m.score.toFixed(1)) : null,
+      description: m.synopsis || '',
+      genres: (m.genres || []).map(g => g.name),
+      episodes: m.episodes || null,
+      status: m.airing ? 'RELEASING' : (m.status === 'Not yet aired' ? 'NOT_YET_RELEASED' : 'FINISHED'),
+      format: fmtMap[(m.type || '').toLowerCase()] || m.type || null,
+      seasonYear: m.year || (m.aired && m.aired.from ? new Date(m.aired.from).getFullYear() : null),
+      season: seasonMap[(m.season || '').toLowerCase()] || null,
+      duration: m.duration ? parseInt(m.duration) || null : null,
+      source: m.source || null,
+      studio: (m.studios && m.studios[0] && m.studios[0].name) || null,
+      trailer: (m.trailer && m.trailer.youtube_id) ? m.trailer.youtube_id : null,
+      _fromJikan: true,
+    };
+  } catch (_) { return null; }
+}
+
+async function prefetchCovers(items) {
+  const sessions = [...new Set(items.map(i => i.anime_session || i.session || '').filter(Boolean))];
+  const needed = sessions.filter(s => !_coverCache[s] && !_coverFailed.has(s));
+  if (!needed.length) return;
+
+  const titleMap = {};
+  items.forEach(i => {
+    const s = i.anime_session || i.session || '';
+    if (s && i.title) titleMap[s] = i.title;
+  });
+
+  // ── Step 1: resolve /ids in chunks of 8 (avoid backend overload) ──
+  const CHUNK = 8;
+  const idMap = {};
+  for (let i = 0; i < needed.length; i += CHUNK) {
+    const chunk = needed.slice(i, i + CHUNK);
+    const results = await Promise.all(
+      chunk.map(s => fetch('/ids?session=' + encodeURIComponent(s)).then(r => r.json()).catch(() => ({})))
+    );
+    chunk.forEach((s, j) => { if (results[j] && results[j].anilist) idMap[s] = results[j].anilist; });
+  }
+
+  // ── Step 2: ONE batch AniList request by ID ──
+  const coverMapById = await _batchAniList(idMap);
+
+  // Separate: sessions resolved by ID vs still missing
+  const stillMissing = needed.filter(s => !coverMapById[s]);
+
+  // ── Step 3: ONE batch AniList title-search for all still-missing sessions ──
+  const titleSearchMap = {};
+  stillMissing.forEach(s => { if (titleMap[s]) titleSearchMap[s] = titleMap[s]; });
+  const coverMapByTitle = await _batchAniListByTitle(titleSearchMap);
+
+  // ── Step 4: cache AniList results, collect remaining misses for Jikan ──
+  const jikanQueue = []; // { session, title, delay }
+  needed.forEach(s => {
+    const data = coverMapById[s] || coverMapByTitle[s] || null;
+    if (data) {
+      _coverCache[s] = Promise.resolve(data);
+      // Non-blocking episode patch from Jikan if AniList had no episode count
+      if (data.episodes == null && titleMap[s]) {
+        _fetchJikan(titleMap[s]).then(j => { if (j && j.episodes != null) data.episodes = j.episodes; });
+      }
+    } else if (titleMap[s]) {
+      jikanQueue.push(s);
+    } else {
+      _coverFailed.add(s);
+    }
+  });
+
+  // ── Step 5: Jikan for anything AniList truly couldn't find ──
+  // Staggered to respect Jikan's rate limit (~3 req/sec)
+  if (jikanQueue.length) {
+    const jikanPromises = jikanQueue.map((s, i) => {
+      const p = new Promise(resolve => setTimeout(resolve, i * 400))
+        .then(() => _fetchJikan(titleMap[s]))
+        .then(jData => {
+          if (jData) { _coverCache[s] = Promise.resolve(jData); }
+          else { _coverFailed.add(s); delete _coverCache[s]; }
+          return jData;
+        });
+      _coverCache[s] = p; // store promise so concurrent getCoverData calls deduplicate
+      return p;
+    });
+    await Promise.all(jikanPromises);
+  }
+}
+
+function getCoverData(session, titleHint) {
+  if (!session && !titleHint) return Promise.resolve(null);
+  const cacheKey = session || ('title:' + titleHint);
+  if (_coverFailed.has(cacheKey)) return Promise.resolve(null);
+  if (_coverCache[cacheKey]) return _coverCache[cacheKey];
+
+  // Called outside prefetchCovers (e.g. modal open) — run the full chain for this one session
+  const p = (async () => {
+    // 1. AniList by ID
+    if (session) {
+      try {
+        const ids = await fetch('/ids?session=' + encodeURIComponent(session)).then(r => r.json());
+        if (ids && ids.anilist) {
+          const m = await _batchAniList({ [cacheKey]: ids.anilist });
+          if (m[cacheKey]) return m[cacheKey];
+        }
+      } catch (_) {}
+    }
+    // 2. AniList by title
+    if (titleHint) {
+      const m = await _batchAniListByTitle({ [cacheKey]: titleHint });
+      if (m[cacheKey]) {
+        const data = m[cacheKey];
+        if (data.episodes == null) {
+          _fetchJikan(titleHint).then(j => { if (j && j.episodes != null) data.episodes = j.episodes; });
+        }
+        return data;
+      }
+    }
+    // 3. Jikan last resort
+    const jd = titleHint ? await _fetchJikan(titleHint) : null;
+    if (!jd) _coverFailed.add(cacheKey);
+    return jd;
+  })();
+
+  _coverCache[cacheKey] = p;
+  return p;
+}
+
+function swapImgCover(imgEl, session, titleHint) {
+  if (!imgEl || !session) return;
+  imgEl.src = BLANK;
+  imgEl.style.background = 'var(--bg3)';
+  getCoverData(session, titleHint || null).then(data => {
+    if (!imgEl.isConnected) return;
+    if (data && data.cover) { imgEl.src = data.cover; imgEl.style.background = ''; }
+  });
+}
+
+async function enrichHeroItems(items) {
+  await prefetchCovers(items);
+  return Promise.all(items.map(async item => {
+    const session = item.anime_session || item.session || '';
+    const data = await getCoverData(session, item.title || null);
+    if (data) {
+      item.banner      = data.banner      || item.snapshot;
+      item.cover       = data.cover       || item.snapshot;
+      item.color       = data.color       || null;
+      item.description = data.description || '';
+      item.score       = data.score       || null;
+      item.genres      = data.genres      || [];
+      item.episodes    = data.episodes    || null;
+      item.status      = data.status      || null;
+      item.format      = data.format      || null;
+      item.seasonYear  = data.seasonYear  || null;
+      item.season      = data.season      || null;
+      item.duration    = data.duration    || null;
+      item.source      = data.source      || null;
+      item.studio      = data.studio      || null;
+      item.trailer     = data.trailer     || null;
+    }
+    return item;
+  }));
+}
+
+// ── AniList: fetch trending (currently airing, sorted by AniList trending score) ──
+// ── AniList: hero = most popular of the CURRENT season ───────────────────────
+// Distinct from Trending (activity spikes) and Browse (all-time popularity).
+// Computed dynamically so it never goes stale.
+function _currentSeason() {
+  const m = new Date().getMonth(); // 0-11
+  if (m < 3)  return 'WINTER';
+  if (m < 6)  return 'SPRING';
+  if (m < 9)  return 'SUMMER';
+  return 'FALL';
+}
+
+async function _fetchAniListHero() {
+  const season = _currentSeason();
+  const year   = new Date().getFullYear();
+  const query  = `{
+    Page(page:1,perPage:10){
+      media(type:ANIME,sort:POPULARITY_DESC,season:${season},seasonYear:${year},status_in:[RELEASING,FINISHED],format_in:[TV,MOVIE]){
+        id title{romaji english}
+        coverImage{extraLarge large color} bannerImage averageScore
+        format seasonYear season episodes status(version:2)
+        duration source(version:3)
+        studios(isMain:true){nodes{name}}
+        genres trailer{id site}
+        synopsis:description(asHtml:false)
+      }
+    }
+  }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const json = await res.json();
+    const items = (json.data && json.data.Page && json.data.Page.media) || [];
+    // Must have a banner image to look good in the hero
+    return items.filter(m => m.bannerImage);
+  } catch (_) { return []; }
+}
+
+async function _fetchAniListTrending() {
+  const query = `{
+    Page(page:1,perPage:20){
+      media(type:ANIME,sort:TRENDING_DESC,status:RELEASING){
+        id title{romaji english}
+        coverImage{extraLarge large color} bannerImage averageScore
+        format seasonYear season episodes status(version:2)
+        duration source(version:3)
+        studios(isMain:true){nodes{name}}
+        genres trailer{id site}
+        synopsis:description(asHtml:false)
+      }
+    }
+  }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const json = await res.json();
+    return (json.data && json.data.Page && json.data.Page.media) || [];
+  } catch (_) { return []; }
+}
+
+// ── AniList: fetch top ranked (all-time highest score) ───────────────────────
+async function _fetchAniListTopRanked() {
+  const query = `{
+    Page(page:1,perPage:15){
+      media(type:ANIME,sort:SCORE_DESC,status_in:[RELEASING,FINISHED]){
+        id title{romaji english}
+        coverImage{extraLarge large color} bannerImage averageScore
+        format seasonYear season episodes status(version:2)
+        duration source(version:3)
+        studios(isMain:true){nodes{name}}
+        genres trailer{id site}
+        synopsis:description(asHtml:false)
+      }
+    }
+  }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const json = await res.json();
+    return (json.data && json.data.Page && json.data.Page.media) || [];
+  } catch (_) { return []; }
+}
+
+// ── Build hero/trending/ranked cards from AniList data ───────────────────────
+function _alToHeroItem(m) {
+  const cover = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '';
+  const title = (m.title && (m.title.english || m.title.romaji)) || '';
+  return {
+    title, cover, banner: m.bannerImage || cover,
+    color: (m.coverImage && m.coverImage.color) || null,
+    score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+    description: m.synopsis ? m.synopsis.replace(/<[^>]+>/g, '') : '',
+    genres: m.genres || [],
+    episodes: m.episodes || null, status: m.status || null,
+    format: m.format || null, seasonYear: m.seasonYear || null,
+    season: m.season || null, duration: m.duration || null,
+    source: m.source || null,
+    studio: (m.studios && m.studios.nodes && m.studios.nodes[0]) ? m.studios.nodes[0].name : null,
+    trailer: (m.trailer && m.trailer.site === 'youtube') ? m.trailer.id : null,
+    // no session — AniList item
+  };
+}
+
+function _makeALTrendingCard(m) {
+  const item = _alToHeroItem(m);
+  const div = document.createElement('div');
+  div.className = 'a-card fade-in';
+  const qiParts = [];
+  if (item.score) qiParts.push('<span class="qi-score">★ ' + esc(item.score) + '</span>');
+  if (item.format) qiParts.push('<span class="qi-sep">·</span><span>' + esc(fmtFormat(item.format)) + '</span>');
+  if (item.seasonYear) qiParts.push('<span class="qi-sep">·</span><span>' + esc(String(item.seasonYear)) + '</span>');
+  div.innerHTML =
+    '<div class="a-card-img-wrap">' +
+      '<img src="' + esc(item.cover) + '" loading="lazy" style="background:var(--bg3)">' +
+      '<div class="a-card-overlay">' +
+        '<button class="a-card-info-btn" title="More info" aria-label="More info">' +
+          '<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+        '</button>' +
+        '<div class="a-card-overlay-inner">' +
+          '<div class="a-card-play"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>' +
+          '<div class="a-card-quickinfo">' + qiParts.join('') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="a-info"><div class="a-title">' + esc(item.title) + '</div></div>';
+  div.querySelector('.a-card-info-btn').addEventListener('click', e => { e.stopPropagation(); openModalWithData(item); });
+  div.querySelector('.a-card-play').addEventListener('click', e => { e.stopPropagation(); goWatch(item); });
+  div.addEventListener('click', () => goWatch(item));
+  return div;
+}
+
+function _makeALRankCard(m, rank) {
+  const item = _alToHeroItem(m);
+  const div = document.createElement('div');
+  div.className = 'rank-card fade-in';
+  div.innerHTML =
+    '<div class="rank-num">' + rank + '</div>' +
+    '<img class="rank-img" src="' + esc(item.cover) + '" loading="lazy" style="background:var(--bg3)">' +
+    '<div class="rank-info">' +
+      '<div class="rank-title">' + esc(item.title) + '</div>' +
+      '<div class="rank-meta">' + (item.score ? '★ ' + esc(item.score) : '') + (item.seasonYear ? (item.score ? ' · ' : '') + esc(String(item.seasonYear)) : '') + '</div>' +
+    '</div>';
+  div.addEventListener('click', () => openModalWithData(item));
+  return div;
+}
+
+// ── Main loaders ──────────────────────────────────────────────────────────────
+async function loadTrendingAndRecent() {
+  renderSkeletons('trendingRow', 10);
+  renderSkeletons('recentRow', 8);
+
+  // Fetch hero (seasonal popular), trending, and recent all in parallel
+  const [heroData, trendingItems, recentResult] = await Promise.all([
+    _fetchAniListHero(),
+    _fetchAniListTrending(),
+    fetch('/latest?page=1').then(r => r.json()).catch(() => [])
+  ]);
+
+  const recentData = Array.isArray(recentResult) ? recentResult : [];
+
+  // ── Hero: top 5 popular of the current season (need banner image) ─────────
+  const heroSource = heroData.length ? heroData : trendingItems; // fallback to trending
+  if (heroSource.length) {
+    heroItems = heroSource.slice(0, 5).map(_alToHeroItem);
+    const dotsEl = document.getElementById('heroDots');
+    dotsEl.innerHTML = '';
+    heroItems.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'hero-dot' + (i === 0 ? ' active' : '');
+      d.addEventListener('click', () => { clearHeroTimer(); setHero(i); startHeroTimer(); });
+      dotsEl.appendChild(d);
+    });
+    setHero(0);
+    startHeroTimer();
+  }
+
+  // ── Trending row: AniList trending cards ─────────────────────────────────
+  const trendingRow = document.getElementById('trendingRow');
+  trendingRow.innerHTML = '';
+  if (trendingItems.length) {
+    trendingItems.forEach(m => trendingRow.appendChild(_makeALTrendingCard(m)));
+  } else {
+    trendingRow.innerHTML = '<div class="empty-state">Nothing trending right now</div>';
+  }
+
+  // ── Recently Updated row: AnimePahe (real episode release times) ──────────
+  const recentRow = document.getElementById('recentRow');
+  recentRow.innerHTML = '';
+  if (recentData.length) {
+    await prefetchCovers(recentData);
+    recentData.forEach(item => recentRow.appendChild(makeWideCard(item)));
+  } else {
+    recentRow.innerHTML = '<div class="empty-state">No recent updates</div>';
+  }
+}
+
+async function loadRanked() {
+  const row = document.getElementById('rankedRow');
+  renderSkeletons('rankedRow', 8);
+
+  const items = await _fetchAniListTopRanked();
+  row.innerHTML = '';
+  if (items.length) {
+    items.forEach((m, i) => row.appendChild(_makeALRankCard(m, i + 1)));
+  } else {
+    row.innerHTML = '<div class="empty-state">Could not load rankings</div>';
+  }
+}
+
+// ── BROWSE: pure AniList (POPULARITY_DESC, paginated) ────────────────────────
+// AniList has cover images for its entire database, so no Jikan fallback needed.
+// Jikan remains only in prefetchCovers/getCoverData for the AnimePahe-sourced
+// rows (Trending, Ranked, Recently Updated, Continue Watching).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BROWSE_PER_PAGE = 36;
+let _browsePage = 1;
+let _browseDone = false;
+let _browseRendered = 0;
+const _browseSeenIds = new Set();
+
+// ── AniList browse fetch (33 per page) ───────────────────────────────────────
+async function _fetchAniListBrowsePage(page) {
+  const query = `{
+    Page(page:${page},perPage:${BROWSE_PER_PAGE}){
+      pageInfo{hasNextPage}
+      media(type:ANIME,sort:POPULARITY_DESC,status_in:[RELEASING,FINISHED]){
+        id title{romaji english}
+        coverImage{extraLarge large color} bannerImage averageScore
+        format seasonYear season episodes status(version:2)
+        duration source(version:3)
+        studios(isMain:true){nodes{name}}
+        genres trailer{id site}
+        synopsis:description(asHtml:false)
+      }
+    }
+  }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const json = await res.json();
+    const page_data = json.data && json.data.Page;
+    return {
+      items: (page_data && page_data.media) || [],
+      hasNextPage: !!(page_data && page_data.pageInfo && page_data.pageInfo.hasNextPage)
+    };
+  } catch (_) { return { items: [], hasNextPage: false }; }
+}
+
+// ── Build a browse card from AniList item ─────────────────────────────────────
+function _makeBrowseCardFromAL(m) {
+  const cover = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '';
+  const title = (m.title && (m.title.english || m.title.romaji)) || '';
+  const score = m.averageScore ? (m.averageScore / 10).toFixed(1) : null;
+
+  const div = document.createElement('div');
+  div.className = 'a-card fade-in';
+
+  const qiParts = [];
+  if (score) qiParts.push('<span class="qi-score">★ ' + esc(score) + '</span>');
+  if (m.format) qiParts.push('<span class="qi-sep">·</span><span>' + esc(fmtFormat(m.format)) + '</span>');
+  if (m.seasonYear) qiParts.push('<span class="qi-sep">·</span><span>' + esc(String(m.seasonYear)) + '</span>');
+
+  div.innerHTML =
+    '<div class="a-card-img-wrap">' +
+      '<img src="' + esc(cover) + '" loading="lazy" style="background:var(--bg3)">' +
+      '<div class="a-card-overlay">' +
+        '<button class="a-card-info-btn" title="More info" aria-label="More info">' +
+          '<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+        '</button>' +
+        '<div class="a-card-overlay-inner">' +
+          '<div class="a-card-play"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>' +
+          '<div class="a-card-quickinfo">' + qiParts.join('') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="a-info"><div class="a-title">' + esc(title) + '</div></div>';
+
+  const syntheticItem = {
+    title, cover, banner: m.bannerImage || cover,
+    color: (m.coverImage && m.coverImage.color) || null,
+    score, genres: m.genres || [],
+    episodes: m.episodes || null, status: m.status || null,
+    format: m.format || null, seasonYear: m.seasonYear || null,
+    season: m.season || null, duration: m.duration || null,
+    source: m.source || null,
+    studio: (m.studios && m.studios.nodes && m.studios.nodes[0]) ? m.studios.nodes[0].name : null,
+    trailer: (m.trailer && m.trailer.site === 'youtube') ? m.trailer.id : null,
+    description: m.synopsis ? m.synopsis.replace(/<[^>]+>/g, '') : '',
+  };
+
+  div.querySelector('.a-card-info-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    openModalWithData(syntheticItem);
+  });
+  div.querySelector('.a-card-play').addEventListener('click', e => {
+    e.stopPropagation();
+    goWatch(syntheticItem);
+  });
+  div.addEventListener('click', () => goWatch(syntheticItem));
+  return div;
+}
+
+// ── Grey placeholder card (skeleton slot) ────────────────────────────────────
+function _makeGreySlot() {
+  const div = document.createElement('div');
+  div.className = 'a-card';
+  div.setAttribute('data-grey', '1');
+  div.innerHTML =
+    '<div class="a-card-img-wrap">' +
+      '<div class="skel" style="width:150px;height:212px;border-radius:var(--radius);"></div>' +
+    '</div>' +
+    '<div class="a-info"><div class="skel skel-line w80" style="margin-top:8px;height:14px;border-radius:4px;"></div></div>';
+  return div;
+}
+
+// ── Main loadBrowse ───────────────────────────────────────────────────────────
+async function loadBrowse() {
+  _activeGenre = 'all';
+  _browsePage = 1;
+  _browseDone = false;
+  _browseFetching = false;
+  _browseRendered = 0;
+  _browseSeenIds.clear();
+  const myGen = ++_browseGen;
+
+  const grid = document.getElementById('browseGrid');
+  const oldBtn = document.getElementById('loadMoreBtn');
+  if (oldBtn) oldBtn.remove();
+
+  // Show 33 skeleton slots while first AniList fetch runs
+  grid.innerHTML = '';
+  for (let i = 0; i < BROWSE_PER_PAGE; i++) {
+    grid.appendChild(_makeGreySlot());
+  }
+  document.getElementById('browseCount').textContent = '';
+
+  // Initial load — btn doesn't exist yet, pass null
+  await _loadOneBrowsePage(null, myGen);
+}
+
+// ── Core: fetch one AniList page and render cards ────────────────────────────
+async function _loadOneBrowsePage(btn, gen) {
+  const grid = document.getElementById('browseGrid');
+
+  // --- 1. Fetch AniList page ---
+  const { items: alItems, hasNextPage } = await _fetchAniListBrowsePage(_browsePage);
+  if (gen !== undefined && gen !== _browseGen) return; // stale — a newer filter switch happened
+  _browsePage++;
+  if (!hasNextPage) _browseDone = true;
+
+  // --- 2. Deduplicate by AniList id ---
+  const unique = alItems.filter(m => {
+    if (_browseSeenIds.has(m.id)) return false;
+    _browseSeenIds.add(m.id);
+    return true;
+  });
+
+  // --- 3. Clear grey skeleton slots added for this batch ---
+  grid.querySelectorAll('[data-grey]').forEach(el => el.remove());
+
+  // --- 4. Render all AniList cards (AniList always has covers) ---
+  unique.forEach(m => grid.appendChild(_makeBrowseCardFromAL(m)));
+
+  // --- 5. Update count ---
+  _browseRendered = grid.querySelectorAll('.a-card.fade-in').length;
+  document.getElementById('browseCount').textContent = _browseRendered + ' titles loaded';
+
+  // --- 6. Re-enable or remove Load More ---
+  let loadBtn = document.getElementById('loadMoreBtn');
+  if (_browseDone) {
+    if (loadBtn) loadBtn.remove();
+  } else {
+    if (!loadBtn) {
+      loadBtn = _makeLoadMoreBtn();
+      grid.insertAdjacentElement('afterend', loadBtn);
+    }
+    loadBtn.disabled = false;
+    loadBtn.textContent = 'Load More';
+    loadBtn.style.opacity = '1';
+    loadBtn.style.cursor = 'pointer';
+  }
+}
+
+function _makeLoadMoreBtn() {
+  const btn = document.createElement('button');
+  btn.id = 'loadMoreBtn';
+  btn.textContent = 'Load More';
+  btn.style.cssText = 'display:block;margin:24px auto 40px;padding:10px 36px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text2);font-family:var(--mono);font-size:12px;cursor:pointer;transition:all 0.15s;letter-spacing:0.05em;';
+  btn.onmouseover = () => { if (!btn.disabled) { btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent)'; } };
+  btn.onmouseout  = () => { if (!btn.disabled) { btn.style.borderColor = 'var(--border2)'; btn.style.color = 'var(--text2)'; } };
+  btn.onclick = async () => {
+    if (btn.disabled) return;
+    btn.textContent = 'Loading…';
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'default';
+    await _loadOneBrowsePage(btn, _browseGen);
+  };
+  return btn;
+}
+
+function makeLoadMoreBtn() { return _makeLoadMoreBtn(); }
+function resetLoadMoreBtn(btn) {
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = 'Load More';
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+}
+
+// ── GENRE FILTER ─────────────────────────────────────────────────────────────
+let _activeGenre = 'all';
+let _genrePage = 1;
+let _genreItems = [];
+let _genreDone = false;
+let _genreFetching = false;
+let _browseGen = 0; // incremented on every filter switch to cancel stale loads
+
+// Map pill data-genre values to AniList genre strings
+const GENRE_MAP = {
+  action: 'Action', romance: 'Romance', comedy: 'Comedy',
+  fantasy: 'Fantasy', thriller: 'Thriller', 'slice-of-life': 'Slice of Life',
+  'sci-fi': 'Sci-Fi', horror: 'Horror', sports: 'Sports',
+  adventure: 'Adventure', drama: 'Drama', mystery: 'Mystery',
+  'psychological': 'Psychological', supernatural: 'Supernatural',
+  'mecha': 'Mecha', music: 'Music', ecchi: 'Ecchi',
+  'mahou-shoujo': 'Mahou Shoujo', historical: 'Historical',
+  'martial-arts': 'Martial Arts', isekai: 'Isekai',
+};
+
+async function fetchGenrePage(genres, page) {
+  // genres can be a string (legacy) or array
+  const genreArr = Array.isArray(genres) ? genres : [genres];
+  const genreList = genreArr.map(g => GENRE_MAP[g] || g);
+  const genreParam = genreList.map(g => '"' + g + '"').join(',');
+  const query = `{
+    Page(page:${page},perPage:36){
+      pageInfo{hasNextPage}
+      media(genre_in:[${genreParam}],type:ANIME,sort:POPULARITY_DESC,status_in:[RELEASING,FINISHED]){
+        id title{romaji english} coverImage{extraLarge large color} bannerImage averageScore
+        format seasonYear season episodes status(version:2) duration source(version:3)
+        studios(isMain:true){nodes{name}} genres trailer{id site}
+        synopsis:description(asHtml:false)
+      }
+    }
+  }`;
+  const res = await fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  const json = await res.json();
+  return (json.data && json.data.Page && json.data.Page.media) || [];
+}
+
+function anilistItemToCard(m) {
+  const div = document.createElement('div');
+  div.className = 'a-card fade-in';
+  const cover = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '';
+  const title = (m.title && (m.title.english || m.title.romaji)) || '';
+  const score = m.averageScore ? (m.averageScore/10).toFixed(1) : null;
+  const qiParts = [];
+  if (score) qiParts.push('<span class="qi-score">★ ' + esc(score) + '</span>');
+  if (m.format) qiParts.push('<span class="qi-sep">·</span><span>' + esc(fmtFormat(m.format)) + '</span>');
+  if (m.seasonYear) qiParts.push('<span class="qi-sep">·</span><span>' + esc(String(m.seasonYear)) + '</span>');
+
+  div.innerHTML =
+    '<div class="a-card-img-wrap">' +
+      '<img src="' + esc(cover) + '" loading="lazy" style="background:var(--bg3)">' +
+      '<div class="a-card-overlay">' +
+        '<button class="a-card-info-btn" title="More info" aria-label="More info">' +
+          '<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+        '</button>' +
+        '<div class="a-card-overlay-inner">' +
+          '<div class="a-card-play"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>' +
+          '<div class="a-card-quickinfo">' + qiParts.join('') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="a-info"><div class="a-title">' + esc(title) + '</div></div>';
+
+  // Build a synthetic item from AniList data for the modal
+  const syntheticItem = {
+    title,
+    cover, banner: m.bannerImage || cover,
+    color: (m.coverImage && m.coverImage.color) || null,
+    score, genres: m.genres || [],
+    episodes: m.episodes || null, status: m.status || null,
+    format: m.format || null, seasonYear: m.seasonYear || null,
+    season: m.season || null, duration: m.duration || null,
+    source: m.source || null,
+    studio: (m.studios && m.studios.nodes && m.studios.nodes[0]) ? m.studios.nodes[0].name : null,
+    trailer: (m.trailer && m.trailer.site === 'youtube') ? m.trailer.id : null,
+    description: m.synopsis ? m.synopsis.replace(/<[^>]+>/g,'') : '',
+  };
+
+  div.querySelector('.a-card-info-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    openModalWithData(syntheticItem);
+  });
+  div.querySelector('.a-card-play').addEventListener('click', e => {
+    e.stopPropagation();
+    goWatch(syntheticItem);
+  });
+  div.addEventListener('click', () => goWatch(syntheticItem));
+  return div;
+}
+
+async function loadGenreGrid(genres) {
+  const myGen = ++_browseGen;
+  _activeGenre = genres; // now an array
+  _genrePage = 1;
+  _genreItems = [];
+  _genreDone = false;
+
+  const grid = document.getElementById('browseGrid');
+  // Remove any existing load more button immediately
+  const oldBtn = document.getElementById('loadMoreBtn');
+  if (oldBtn) oldBtn.remove();
+  grid.innerHTML = '';
+  for (let i = 0; i < 33; i++) {
+    const s = document.createElement('div');
+    s.className = 'skel'; s.style.cssText = 'height:212px;border-radius:var(--radius)';
+    grid.appendChild(s);
+  }
+
+  document.getElementById('browseCount').textContent = '';
+
+  try {
+    const items = await fetchGenrePage(genres, _genrePage);
+    if (myGen !== _browseGen) return; // stale
+    _genrePage++;
+    _genreItems = items;
+    _genreDone = items.length < 33;
+    grid.innerHTML = '';
+    items.forEach(m => grid.appendChild(anilistItemToCard(m)));
+    document.getElementById('browseCount').textContent = items.length + ' titles loaded';
+
+    if (!_genreDone) {
+      const newBtn = makeLoadMoreBtn();
+      newBtn.onclick = async () => {
+        if (newBtn.disabled) return;
+        newBtn.textContent = 'Loading…';
+        newBtn.disabled = true;
+        newBtn.style.opacity = '0.5';
+        newBtn.style.cursor = 'default';
+        try {
+          const more = await fetchGenrePage(_activeGenre, _genrePage);
+          if (myGen !== _browseGen) return; // stale
+          _genrePage++;
+          if (more.length < 33) { _genreDone = true; newBtn.remove(); }
+          more.forEach(m => grid.appendChild(anilistItemToCard(m)));
+          _genreItems = _genreItems.concat(more);
+          document.getElementById('browseCount').textContent = _genreItems.length + ' titles loaded';
+          if (!_genreDone) resetLoadMoreBtn(newBtn);
+        } catch { resetLoadMoreBtn(newBtn); }
+      };
+      grid.insertAdjacentElement('afterend', newBtn);
+    }
+  } catch {
+    if (myGen !== _browseGen) return;
+    grid.innerHTML = '<div class="empty-state">Could not load genre</div>';
+  }
+}
+
+// Wire genre pills — multi-select supported
+let _selectedGenres = new Set(); // currently selected genre keys
+
+document.querySelectorAll('.genre-pill').forEach(pill => {
+  pill.addEventListener('click', e => {
+    e.preventDefault();
+    const genre = pill.dataset.genre;
+
+    if (genre === 'all') {
+      // Reset to all
+      _selectedGenres.clear();
+      document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      document.getElementById('browseTag').textContent = 'All';
+      document.getElementById('browseGrid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      loadBrowse();
+      return;
+    }
+
+    // Toggle this genre
+    if (_selectedGenres.has(genre)) {
+      _selectedGenres.delete(genre);
+      pill.classList.remove('active');
+    } else {
+      _selectedGenres.add(genre);
+      pill.classList.add('active');
+    }
+
+    // Also deactivate "All" pill
+    document.querySelector('.genre-pill[data-genre="all"]').classList.remove('active');
+
+    const tag = document.getElementById('browseTag');
+
+    if (_selectedGenres.size === 0) {
+      // Nothing selected — revert to all
+      document.querySelector('.genre-pill[data-genre="all"]').classList.add('active');
+      tag.textContent = 'All';
+      document.getElementById('browseGrid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      loadBrowse();
+    } else {
+      // Build label from selected genres
+      const labels = [..._selectedGenres].map(g => {
+        const el = document.querySelector('.genre-pill[data-genre="' + g + '"]');
+        return el ? el.textContent : g;
+      });
+      tag.textContent = labels.join(' + ');
+      document.getElementById('browseGrid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      loadGenreGrid([..._selectedGenres]);
+    }
+  });
+});
+
+// ── ROW ARROWS ───────────────────────────────────────────────────────────────
+function initRowArrows(rowId) {
+  const row  = document.getElementById(rowId);
+  const btnL = document.getElementById(rowId + 'ArrowL');
+  const btnR = document.getElementById(rowId + 'ArrowR');
+  if (!row || !btnL || !btnR) return;
+
+  const SCROLL_AMT = () => row.clientWidth * 0.75;
+
+  function updateArrows() {
+    btnL.classList.toggle('hidden', row.scrollLeft <= 4);
+    btnR.classList.toggle('hidden', row.scrollLeft + row.clientWidth >= row.scrollWidth - 4);
+  }
+
+  btnL.addEventListener('click', () => { row.scrollBy({ left: -SCROLL_AMT(), behavior: 'smooth' }); });
+  btnR.addEventListener('click', () => { row.scrollBy({ left:  SCROLL_AMT(), behavior: 'smooth' }); });
+  row.addEventListener('scroll', updateArrows, { passive: true });
+
+  // Re-check after content loads
+  const obs = new MutationObserver(updateArrows);
+  obs.observe(row, { childList: true });
+  updateArrows();
+}
+
+['continueRow','trendingRow','rankedRow','recentRow'].forEach(initRowArrows);
+
+// ── SIMULCAST CALENDAR ──────────────────────────────────────────────────────
+let _calLoaded = false;
+let _calWeekOffset = 0;   // 0 = current week, ±1 = prev/next
+let _calWeekCache  = {};  // offset -> { days, groups }
+let _calActiveDow  = new Date().getDay(); // active day-of-week in sidebar
+
+const CAL_DAY_NAMES  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const CAL_DAY_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function showCalendarPage() {
+  document.getElementById('homePage').classList.add('hidden');
+  document.getElementById('calendarPage').classList.add('visible');
+  document.getElementById('navCalendar').classList.add('active');
+  document.getElementById('navHome').classList.remove('active');
+  if (!_calLoaded) { _calLoaded = true; initCalendar(); }
+  else {
+    // Already loaded — jump to today and scroll to NOW
+    _calActiveDow = new Date().getDay();
+    _calScrollToNow();
+  }
+}
+function showHomePage() {
+  document.getElementById('calendarPage').classList.remove('visible');
+  document.getElementById('homePage').classList.remove('hidden');
+  document.getElementById('navCalendar').classList.remove('active');
+  document.getElementById('navHome').classList.add('active');
+}
+document.getElementById('navCalendar').addEventListener('click', e => {
+  e.preventDefault(); showCalendarPage();
+});
+document.getElementById('navHome').addEventListener('click', e => {
+  if (document.getElementById('calendarPage').classList.contains('visible')) {
+    e.preventDefault(); showHomePage();
+  }
+});
+['navTrending', 'navNew'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('click', e => {
+    e.preventDefault();
+    const targetId = el.getAttribute('href').slice(1);
+    if (document.getElementById('calendarPage').classList.contains('visible')) showHomePage();
+    setTimeout(() => {
+      const target = document.getElementById(targetId);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  });
+});
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function getCurrentSeason() {
+  const m = new Date().getMonth() + 1, y = new Date().getFullYear();
+  return (m<=3?'Winter':m<=6?'Spring':m<=9?'Summer':'Fall') + ' ' + y;
+}
+function calFmtTime(ts) {
+  return new Date(ts*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function calFmtDateShort(d) {
+  return d.toLocaleDateString([],{month:'short',day:'numeric'});
+}
+function countdownStr(ts) {
+  const diff = ts - Date.now()/1000;
+  if (diff <= 0) return null;
+  const h = Math.floor(diff/3600), m = Math.floor((diff%3600)/60), s = Math.floor(diff%60);
+  if (h > 0) return h+'h '+String(m).padStart(2,'0')+'m';
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+// Returns {start,end,monday} unix timestamps for the week Mon–Sun of offset
+function calGetWeekRange(offset) {
+  const now = new Date();
+  // Monday as week start (ISO week)
+  const monday = new Date(now);
+  const dow = now.getDay(); // 0=Sun
+  monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+  monday.setHours(0,0,0,0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23,59,59,999);
+  return {
+    start: Math.floor(monday.getTime()/1000),
+    end:   Math.floor(sunday.getTime()/1000),
+    monday,
+  };
+}
+
+// ── CLOCK ────────────────────────────────────────────────────────────────────
+function startClock() {
+  const el = document.getElementById('scClockEl');
+  if (!el) return;
+  const tick = () => el.textContent = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
+  tick(); setInterval(tick, 1000);
+}
+
+// ── FETCH SCHEDULE ────────────────────────────────────────────────────────────
+async function fetchAiringWeek(weekStart, weekEnd) {
+  const batchFetch = async (page) => {
+    const q = `{Page(page:${page},perPage:50){pageInfo{hasNextPage}airingSchedules(airingAt_greater:${weekStart-1},airingAt_lesser:${weekEnd+1},sort:TIME){id airingAt episode media{id title{english romaji}coverImage{large extraLarge color}bannerImage averageScore episodes duration format status(version:2)season seasonYear genres source(version:3)studios(isMain:true){nodes{name}}synopsis:description(asHtml:false)trailer{id site}isAdult}}}}`;
+    const res  = await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
+    const json = await res.json();
+    const pd   = json.data?.Page;
+    return { slots:(pd?.airingSchedules)||[], hasNextPage:!!(pd?.pageInfo?.hasNextPage) };
+  };
+  try {
+    const p1 = await batchFetch(1);
+    let slots = p1.slots;
+    if (p1.hasNextPage) { const p2 = await batchFetch(2); slots = slots.concat(p2.slots); }
+    if (slots.length === 100) { const p3 = await batchFetch(3); slots = slots.concat(p3.slots); }
+    // Deduplicate: keep earliest episode per media
+    const seen = new Map();
+    for (const s of slots) {
+      if (!s.media || s.media.isAdult) continue;
+      if (!seen.has(s.media.id) || s.airingAt < seen.get(s.media.id).airingAt) seen.set(s.media.id, s);
+    }
+    return Array.from(seen.values()).sort((a,b)=>a.airingAt-b.airingAt);
+  } catch(e) { console.error(e); return []; }
+}
+
+// Group by DOW (0=Sun…6=Sat)
+function calGroupByDow(slots) {
+  const g = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+  slots.forEach(s => { const d = new Date(s.airingAt*1000).getDay(); g[d].push(s); });
+  return g;
+}
+
+async function calGetWeekData(offset) {
+  if (_calWeekCache[offset]) return _calWeekCache[offset];
+  const {start,end} = calGetWeekRange(offset);
+  const slots = await fetchAiringWeek(start, end);
+  const groups = calGroupByDow(slots);
+  _calWeekCache[offset] = {slots,groups};
+  return _calWeekCache[offset];
+}
+
+// ── AVAILABILITY CHECK ────────────────────────────────────────────────────────
+const _avail = {};
+async function checkAvailable(title, airingAt) {
+  if (airingAt > Date.now()/1000) return 'upcoming';
+  const key = title.toLowerCase().slice(0, 40);
+  if (_avail[key] !== undefined) return _avail[key];
+  _avail[key] = 'checking';
+  const { searchTitle, aliased } = resolveSearchTitle(title);
+  try {
+    const res  = await fetch('/search?q=' + encodeURIComponent(searchTitle));
+    const data = await res.json();
+    let found = false;
+    if (Array.isArray(data) && data.length) {
+      if (aliased) {
+        // Alias query is provider-exact — trust the top result
+        found = true;
+      } else {
+        // Require exact normalized title match to prevent spin-off false positives
+        const normTarget = _norm(searchTitle);
+        found = data.some(item => item.title && _norm(item.title) === normTarget);
+      }
+    }
+    _avail[key] = found ? 'available' : 'unavailable';
+  } catch(_) { _avail[key] = 'unavailable'; }
+  return _avail[key];
+}
+
+// ── SIDEBAR RENDER ────────────────────────────────────────────────────────────
+function calRenderSidebar(groups, offset) {
+  const {monday} = calGetWeekRange(offset);
+  const sunday   = new Date(monday); sunday.setDate(monday.getDate()+6);
+  const todayDow = new Date().getDay();
+  const tabsEl   = document.getElementById('calDayTabs');
+  tabsEl.innerHTML = '';
+
+  // Week label
+  document.getElementById('calWeekLabel').textContent = calFmtDateShort(monday)+' – '+calFmtDateShort(sunday);
+  document.getElementById('calPrevWeek').disabled = offset <= -2;
+  document.getElementById('calNextWeek').disabled = offset >= 2;
+
+  // ISO week: Mon=1…Sun=0 — render Mon through Sun
+  const ORDER = [1,2,3,4,5,6,0]; // Mon…Sun DOW
+  ORDER.forEach(dow => {
+    const date  = new Date(monday);
+    date.setDate(monday.getDate() + (dow === 0 ? 6 : dow - 1));
+    const count   = (groups[dow]||[]).length;
+    const isToday = offset===0 && dow===todayDow;
+    const isActive= dow===_calActiveDow;
+
+    const tab = document.createElement('div');
+    tab.className = 'sc-day-tab'+(isActive?' active':'')+(isToday?' today-tab':'');
+    tab.innerHTML =
+      '<div class="sc-day-dot"></div>'+
+      '<div class="sc-day-info">'+
+        '<div class="sc-day-name-txt">'+CAL_DAY_NAMES[dow]+'</div>'+
+        '<div class="sc-day-date-txt">'+calFmtDateShort(date)+'</div>'+
+      '</div>'+
+      '<div class="sc-day-count-badge">'+count+'</div>';
+
+    tab.addEventListener('click', () => {
+      _calActiveDow = dow;
+      calRenderSidebar(groups, offset);
+      calRenderDay(groups[dow]||[], dow, offset);
+      // Scroll day section into view in main panel
+      const sec = document.getElementById('sc-day-'+dow);
+      if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+    tabsEl.appendChild(tab);
+  });
+
+  // Update season label
+  document.getElementById('calSeasonLabel').textContent = getCurrentSeason();
+}
+
+// ── DAY CONTENT RENDER ────────────────────────────────────────────────────────
+function calRenderAllDays(groups, offset) {
+  const container  = document.getElementById('calContent');
+  container.innerHTML = '';
+  const {monday}   = calGetWeekRange(offset);
+  const todayDow   = new Date().getDay();
+  const nowSec     = Math.floor(Date.now()/1000);
+  const ORDER      = [1,2,3,4,5,6,0];
+
+  ORDER.forEach(dow => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + (dow===0?6:dow-1));
+    const daySlots = groups[dow]||[];
+    const isToday  = offset===0 && dow===todayDow;
+
+    const sec = document.createElement('div');
+    sec.className = 'sc-day-section';
+    sec.id = 'sc-day-'+dow;
+
+    // Day header
+    const hdr = document.createElement('div');
+    hdr.className = 'sc-day-hdr';
+    const dayNameCls = isToday?'today':(offset===0 && dow===(todayDow+1)%7?'tomorrow':'future');
+    hdr.innerHTML =
+      '<span class="sc-day-name '+dayNameCls+'">'+(isToday?'Today · ':'')+CAL_DAY_NAMES[dow]+'</span>'+
+      '<span class="sc-day-date">'+calFmtDateShort(date)+'</span>'+
+      '<span class="sc-day-ep-count">'+daySlots.length+' title'+(daySlots.length!==1?'s':'')+'</span>';
+    sec.appendChild(hdr);
+
+    if (!daySlots.length) {
+      const empty = document.createElement('div');
+      empty.className = 'sc-day-empty';
+      empty.textContent = 'Rest day — no simulcasts scheduled.';
+      sec.appendChild(empty);
+      container.appendChild(sec);
+      return;
+    }
+
+    // Group by 5-min time buckets
+    const buckets = {};
+    daySlots.forEach(s => {
+      const b = Math.floor(s.airingAt/300)*300;
+      if (!buckets[b]) buckets[b]=[];
+      buckets[b].push(s);
+    });
+
+    let nowBarInserted = false;
+    let nowBarEl = null;
+
+    Object.entries(buckets).sort(([a],[b])=>+a-+b).forEach(([bkStr, items]) => {
+      const bkTs = parseInt(bkStr);
+
+      // Insert NOW bar before first upcoming slot on today
+      if (isToday && !nowBarInserted && bkTs > nowSec) {
+        nowBarInserted = true;
+        const bar = document.createElement('div');
+        bar.className = 'sc-now-indicator';
+        bar.id = 'sc-now-bar';
+        bar.innerHTML = '<div class="sc-now-dot"></div><div class="sc-now-label">Now — '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'</div>';
+        sec.appendChild(bar);
+        nowBarEl = bar;
+      }
+
+      const grp = document.createElement('div');
+      grp.className = 'sc-time-group';
+      const lbl = document.createElement('div');
+      lbl.className = 'sc-time-label';
+      lbl.innerHTML = '<span>'+calFmtTime(bkTs)+'</span>';
+      grp.appendChild(lbl);
+
+      const row = document.createElement('div');
+      row.className = 'sc-card-row';
+      items.forEach(s => row.appendChild(makeCalCard(s)));
+      grp.appendChild(row);
+      sec.appendChild(grp);
+    });
+
+    // If today and all slots are in the past, insert NOW at bottom
+    if (isToday && !nowBarInserted) {
+      const bar = document.createElement('div');
+      bar.className = 'sc-now-indicator';
+      bar.id = 'sc-now-bar';
+      bar.innerHTML = '<div class="sc-now-dot"></div><div class="sc-now-label">Now — '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'</div>';
+      sec.appendChild(bar);
+      nowBarEl = bar;
+    }
+
+    container.appendChild(sec);
+  });
+}
+
+function calRenderDay(daySlots, dow, offset) {
+  // Just re-scroll — full re-render is handled by calRenderAllDays
+  const sec = document.getElementById('sc-day-'+dow);
+  if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// Scroll the sc-main panel to the NOW indicator
+function _calScrollToNow() {
+  const main = document.getElementById('calMain');
+  const nowBar = document.getElementById('sc-now-bar');
+  if (!main || !nowBar) return;
+  // Use scrollTop math since scrollIntoView goes to the page, not the panel
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const mainRect   = main.getBoundingClientRect();
+      const barRect    = nowBar.getBoundingClientRect();
+      const scrollDiff = barRect.top - mainRect.top - 80; // 80px breathing room
+      main.scrollBy({ top: scrollDiff, behavior: 'smooth' });
+    }, 120);
+  });
+}
+
+// ── CARD BUILDER ──────────────────────────────────────────────────────────────
+function makeCalCard(sched) {
+  const m      = sched.media;
+  const title  = (m.title&&(m.title.english||m.title.romaji))||'Unknown';
+  const cover  = (m.coverImage&&(m.coverImage.extraLarge||m.coverImage.large))||'';
+  const now    = Date.now()/1000;
+  const aired  = sched.airingAt <= now;
+  const isLive = sched.airingAt > now-1800 && sched.airingAt <= now;
+  const cdTxt  = !aired ? (countdownStr(sched.airingAt)||'') : '';
+
+  const synItem = {
+    title, cover, banner:m.bannerImage||cover,
+    color:(m.coverImage&&m.coverImage.color)||null,
+    score:m.averageScore?(m.averageScore/10).toFixed(1):null,
+    description:m.synopsis?m.synopsis.replace(/<[^>]+>/g,''):'',
+    genres:m.genres||[], episodes:m.episodes||null, status:m.status||null,
+    format:m.format||null, seasonYear:m.seasonYear||null, season:m.season||null,
+    duration:m.duration||null, source:m.source||null,
+    studio:(m.studios?.nodes?.[0])?.name||null,
+    trailer:(m.trailer?.site==='youtube')?m.trailer.id:null,
+    _calEpisode: sched.episode || null,
+  };
+
+  const card = document.createElement('div');
+  card.className = 'sc-card fade-in'+(isLive?' is-airing':'');
+
+  const badgeCls = aired ? 'airing' : 'upcoming';
+  const badgeTxt = aired ? (isLive?'● LIVE':'AIRED') : 'UPCOMING';
+
+  card.innerHTML =
+    '<div class="sc-card-poster">'+
+      (cover?'<img src="'+esc(cover)+'" loading="lazy" alt="">':'')+
+      '<div class="sc-card-badge '+badgeCls+'">'+badgeTxt+'</div>'+
+      (cdTxt?'<div class="sc-card-countdown" data-ts="'+sched.airingAt+'">'+esc(cdTxt)+'</div>':'')+
+      '<div class="sc-card-overlay">'+
+        '<div class="sc-card-play-btn"><svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>'+
+        '<div class="sc-card-overlay-ep">Ep '+esc(String(sched.episode))+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="sc-card-info">'+
+      '<div class="sc-card-title">'+esc(title)+'</div>'+
+      '<div class="sc-card-ep-label">Ep '+esc(String(sched.episode))+' · '+esc(calFmtTime(sched.airingAt))+'</div>'+
+    '</div>';
+
+  card.addEventListener('click', () => openModalWithData(synItem));
+
+  if (aired) {
+    const badge = card.querySelector('.sc-card-badge');
+    checkAvailable(title, sched.airingAt).then(status => {
+      if (!card.isConnected||!badge) return;
+      if (status==='available') { badge.className='sc-card-badge available'; badge.textContent='WATCH'; }
+      else { badge.className='sc-card-badge airing'; badge.textContent='AIRED'; }
+    });
+  }
+  return card;
+}
+
+// Countdown ticker
+function startCountdownTicker() {
+  setInterval(() => {
+    document.querySelectorAll('.sc-card-countdown[data-ts]').forEach(el => {
+      const ts  = parseFloat(el.dataset.ts);
+      const txt = countdownStr(ts);
+      if (!txt) {
+        el.remove();
+        const badge = el.closest('.sc-card-poster')?.querySelector('.sc-card-badge');
+        if (badge&&badge.classList.contains('upcoming')) { badge.className='sc-card-badge airing'; badge.textContent='AIRED'; }
+      } else { el.textContent = txt; }
+    });
+  }, 1000);
+}
+
+// ── LOAD WEEK ─────────────────────────────────────────────────────────────────
+async function calLoadWeek(offset) {
+  // Show skeletons
+  const skelEl  = document.getElementById('calSkel');
+  const content = document.getElementById('calContent');
+  if (skelEl) { skelEl.style.display='flex'; }
+  if (content) { content.style.display='none'; content.innerHTML=''; }
+
+  const data   = await calGetWeekData(offset);
+  const {groups} = data;
+  const total  = Object.values(groups).reduce((s,g)=>s+g.length,0);
+
+  document.getElementById('calSeasonLabel').textContent = getCurrentSeason()+' · '+total+' titles';
+
+  if (skelEl) skelEl.style.display='none';
+  if (content) content.style.display='';
+
+  calRenderSidebar(groups, offset);
+  calRenderAllDays(groups, offset);
+  startCountdownTicker();
+
+  // Scroll to today's section, then to NOW bar
+  const todaySec = document.getElementById('sc-day-'+new Date().getDay());
+  if (todaySec && offset === 0) {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        _calScrollToNow();
+      }, 150);
+    });
+  }
+}
+
+// Week nav buttons
+document.getElementById('calPrevWeek').addEventListener('click', () => {
+  _calWeekOffset--;
+  _calActiveDow = _calWeekOffset === 0 ? new Date().getDay() : 1; // Mon on other weeks
+  calLoadWeek(_calWeekOffset);
+});
+document.getElementById('calNextWeek').addEventListener('click', () => {
+  _calWeekOffset++;
+  _calActiveDow = _calWeekOffset === 0 ? new Date().getDay() : 1;
+  calLoadWeek(_calWeekOffset);
+});
+
+// ── INIT CALENDAR ─────────────────────────────────────────────────────────────
+async function initCalendar() {
+  document.getElementById('calSeasonLabel').textContent = getCurrentSeason();
+  startClock();
+  _calActiveDow = new Date().getDay();
+  await calLoadWeek(0);
+}
+// ── INIT ──────────────────────────────────────────────────────────────────────
+checkHealth();
+setInterval(checkHealth, 30000);
+loadContinueWatching();
+// All three fire in parallel; browse waits for all so the page fills consistently
+Promise.all([loadTrendingAndRecent(), loadRanked()]).then(() => loadBrowse());
+
+</script>
+</body>
+</html>

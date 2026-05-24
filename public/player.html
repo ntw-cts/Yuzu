@@ -356,10 +356,7 @@ function _swapSource(src) {
   showLoading(`Switching to ${src.quality}${src.fansub ? ' · ' + src.fansub : ''}…`);
   fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`)
     .then(r => r.json())
-    .then(data => {
-      _currentReferer = data.referer || 'https://kwik.cx/';
-      _playUrl(data.m3u8);
-    })
+    .then(data => { _playUrl(data.proxy_url); })
     .catch(() => { hideLoading(); toast(`Failed to switch quality`, 'err'); });
 }
 
@@ -573,10 +570,8 @@ async function loadSource(src) {
   try {
     const res = await fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`);
     const data = await res.json();
-    // Store the real kwik referer returned by the server
-    _currentReferer = data.referer || 'https://kwik.cx/';
-    // Use the raw m3u8 URL directly — hls.js will inject the Referer header on every request
-    startPlayback(data.m3u8);
+    // Use proxy_url — the server proxy handles Referer injection for us
+    startPlayback(data.proxy_url);
   } catch {
     hideLoading();
     toast(`Failed to resolve ${src.quality} stream`, 'err');

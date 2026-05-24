@@ -171,37 +171,27 @@ app.get('/proxy', async (req, res) => {
     }
 
     const axios = require('axios');
-    const urlObj = new URL(url);
-    const referer = customReferer || `${urlObj.protocol}//${urlObj.host}/`;
+
+    // Use the provided referer — ALWAYS default to kwik.cx since that's what owocdn expects
+    const referer = customReferer || 'https://kwik.cx/';
+    // Derive a clean origin (no trailing slash, no path) using URL parser — never slice blindly
+    let origin = 'https://kwik.cx';
+    try { origin = new URL(referer).origin; } catch (_) {}
 
     // Fetch the content with proper headers
     const response = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': referer,
-        'Origin': referer.slice(0, -1),
+        'Origin': origin,
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'cross-site'
       },
       responseType: 'stream',
       timeout: 30000,
       maxRedirects: 5,
-      validateStatus: function (status) {
-        return status >= 200 && status < 500;
-      }
     });
-
-    if (response.status === 403) {
-      return res.status(403).json({
-        error: 'Access forbidden - CDN blocked the request',
-        url: url
-      });
-    }
 
     const contentType = response.headers['content-type'] ||
                        (url.includes('.m3u8') ? 'application/vnd.apple.mpegurl' :
@@ -212,7 +202,7 @@ app.get('/proxy', async (req, res) => {
       response.data.on('data', chunk => { content += chunk.toString(); });
       response.data.on('end', () => {
         const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-        const refererParam = customReferer ? `&referer=${encodeURIComponent(customReferer)}` : '';
+        const refererParam = `&referer=${encodeURIComponent(referer)}`;
         const modified = content.split('\n').map(line => {
           const t = line.trim();
           if (t.startsWith('#')) {
@@ -250,9 +240,7 @@ app.get('/proxy', async (req, res) => {
       response.data.pipe(res);
     }
   } catch (error) {
-    if (error.response && error.response.status === 403) {
-      return res.status(403).json({ error: 'Access forbidden - CDN blocked the request' });
-    }
+    console.error('Proxy error:', error.message, '| URL:', req.query.url);
     res.status(500).json({ error: error.message });
   }
 });
@@ -282,4 +270,4 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Animepahe API server running on port ${PORT}`);
   });
-      }
+}

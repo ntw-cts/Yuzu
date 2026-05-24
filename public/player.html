@@ -356,7 +356,10 @@ function _swapSource(src) {
   showLoading(`Switching to ${src.quality}${src.fansub ? ' · ' + src.fansub : ''}…`);
   fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`)
     .then(r => r.json())
-    .then(data => { _playUrl(data.proxy_url); })
+    .then(data => {
+      _currentReferer = data.referer || 'https://kwik.cx/';
+      _playUrl(data.m3u8);
+    })
     .catch(() => { hideLoading(); toast(`Failed to switch quality`, 'err'); });
 }
 
@@ -561,14 +564,19 @@ async function playEpisode(ep) {
 
 
 
+// Stores the kwik referer for the currently playing stream so hls.js can inject it
+let _currentReferer = 'https://kwik.cx/';
+
 async function loadSource(src) {
   updateQualityActive(src);
   showLoading(`Resolving ${src.quality} stream…`);
   try {
     const res = await fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`);
     const data = await res.json();
-    const streamUrl = data.proxy_url;
-    startPlayback(streamUrl);
+    // Store the real kwik referer returned by the server
+    _currentReferer = data.referer || 'https://kwik.cx/';
+    // Use the raw m3u8 URL directly — hls.js will inject the Referer header on every request
+    startPlayback(data.m3u8);
   } catch {
     hideLoading();
     toast(`Failed to resolve ${src.quality} stream`, 'err');
@@ -576,6 +584,8 @@ async function loadSource(src) {
 }
 
 // _playUrl: attach an HLS stream URL to the existing Plyr instance
+// hls.js xhrSetup injects Referer + Origin on every segment/key request so
+// Cloudflare-protected CDNs (owocdn.top) accept them from the real browser.
 function _playUrl(url) {
   document.getElementById('playerPlaceholder').style.display = 'none';
   const video = document.getElementById('videoEl');
@@ -583,7 +593,16 @@ function _playUrl(url) {
   if (hls) { hls.destroy(); hls = null; }
 
   if (Hls.isSupported()) {
-    hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      // Inject headers on every XHR hls.js makes (segments, keys, sub-playlists)
+      xhrSetup: function(xhr, url) {
+        xhr.setRequestHeader('Referer', _currentReferer);
+        // Note: browsers block setting Origin via XHR for security — that's fine,
+        // the Referer header alone is enough for kwik/owocdn to pass the request.
+      },
+    });
     hls.loadSource(url);
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -594,7 +613,11 @@ function _playUrl(url) {
       if (d.fatal) { hideLoading(); toast('Stream error — try a different quality', 'err'); }
     });
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = url;
+    // Safari native HLS — can't inject headers, fall back to proxy_url
+    fetch(`${API}/m3u8?url=${encodeURIComponent(_lastSrcUrl || url)}`)
+      .then(r => r.json())
+      .then(data => { video.src = data.proxy_url || url; })
+      .catch(() => { video.src = url; });
     video.addEventListener('loadedmetadata', () => {
       hideLoading();
       if (plyr) plyr.play().catch(() => {});

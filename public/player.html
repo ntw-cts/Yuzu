@@ -296,7 +296,7 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-const API = 'https://api-l620.onrender.com';
+const API = 'https://animepaheapi-b8oh.onrender.com';
 let hls = null;
 let plyr = null;
 let selectedAnime = null;
@@ -354,7 +354,7 @@ function _buildPlyr(qualityOptions, defaultQuality) {
 // Swap HLS source without re-initing Plyr, saving playback position
 function _swapSource(src) {
   showLoading(`Switching to ${src.quality}${src.fansub ? ' · ' + src.fansub : ''}…`);
-  fetch(`/m3u8?url=${encodeURIComponent(src.url)}`)
+  fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`)
     .then(r => r.json())
     .then(data => { _playUrl(data.proxy_url); })
     .catch(() => { hideLoading(); toast(`Failed to switch quality`, 'err'); });
@@ -365,7 +365,7 @@ async function checkHealth() {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
   try {
-    const r = await fetch('/health', { signal: AbortSignal.timeout(4000) });
+    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(4000) });
     const data = await r.json();
     if (r.ok && data.status === 'ok') {
       dot.className = 'status-dot green';
@@ -420,7 +420,7 @@ async function doSearch(q) {
   focusIdx = -1;
   dropdownItems = [];
   try {
-    const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     if (!Array.isArray(data) || !data.length) {
       dropdown.innerHTML = '<div class="dropdown-empty">No results found</div>';
@@ -463,7 +463,7 @@ async function selectAnime(anime) {
   document.getElementById('epList').innerHTML = '<div class="ep-empty">Loading episodes…</div>';
   document.getElementById('epCount').textContent = '';
   try {
-    const res = await fetch(`/episodes?session=${anime.session}`);
+    const res = await fetch(`${API}/episodes?session=${anime.session}`);
     const eps = await res.json();
     window._loadedEpisodes = Array.isArray(eps) ? eps : (eps.data || []);
     renderEpisodes(eps);
@@ -527,7 +527,7 @@ async function playEpisode(ep) {
   clearQuality();
 
   try {
-    const res = await fetch(`/sources?anime_session=${selectedAnime.session}&episode_session=${ep.session}`);
+    const res = await fetch(`${API}/sources?anime_session=${selectedAnime.session}&episode_session=${ep.session}`);
     sources = await res.json();
     if (!sources.length) throw new Error('no sources');
 
@@ -565,7 +565,7 @@ async function loadSource(src) {
   updateQualityActive(src);
   showLoading(`Resolving ${src.quality} stream…`);
   try {
-    const res = await fetch(`/m3u8?url=${encodeURIComponent(src.url)}`);
+    const res = await fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`);
     const data = await res.json();
     const streamUrl = data.proxy_url;
     startPlayback(streamUrl);
@@ -693,7 +693,7 @@ function toast(msg, type='warn', dur=4000) {
   // If no poster in URL, try to resolve it from /ids + AniList
   if (!poster) {
     try {
-      const ids = await fetch('/ids?session=' + encodeURIComponent(session)).then(r => r.json());
+      const ids = await fetch(`${API}/ids?session=` + encodeURIComponent(session)).then(r => r.json());
       if (ids && ids.anilist) {
         const anilistRes = await fetch('https://graphql.anilist.co', {
           method: 'POST',

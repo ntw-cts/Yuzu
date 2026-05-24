@@ -1016,6 +1016,9 @@ body {
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
+  // Add this right after the opening <script> tag
+const API_BASE = 'https://animepaheapi-b8oh.onrender.com';
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1103,7 +1106,7 @@ async function goWatch(anime) {
   const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
   try {
     toast('Searching for ' + displayTitle + '…', 'warn', 4000);
-    const res = await fetch('/search?q=' + encodeURIComponent(searchTitle));
+    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
     const results = await res.json();
     if (!Array.isArray(results) || !results.length) {
       toast('Not found on AnimePahe', 'err'); return;
@@ -1132,7 +1135,7 @@ async function goWatchEpisode(anime, episode) {
   const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
   try {
     toast('Searching for ' + displayTitle + '…', 'warn', 4000);
-    const res = await fetch('/search?q=' + encodeURIComponent(searchTitle));
+    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
     const results = await res.json();
     if (!Array.isArray(results) || !results.length) { toast('Not found on AnimePahe', 'err'); return; }
     const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
@@ -1149,7 +1152,7 @@ async function checkHealth() {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
   try {
-    const r = await fetch('/health', { signal: AbortSignal.timeout(4000) });
+    const r = await fetch(API_BASE + '/health', { signal: AbortSignal.timeout(4000) });
     const d = await r.json();
     if (r.ok && d.status === 'ok') {
       dot.className = 'status-dot green'; txt.textContent = 'API online'; return;
@@ -1200,10 +1203,9 @@ async function doSearch(q) {
     // If an alias exists, query the provider with the romaji title.
     // Otherwise query normally. In both cases also run the original user
     // query in parallel so we surface anything the alias might miss.
-    const fetches = [fetch('/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => [])];
+    const fetches = [fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => [])];
     if (aliased) {
-      // Also search the original English query in case the provider indexes both
-      fetches.push(fetch('/search?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => []));
+      fetches.push(fetch(API_BASE + '/search?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => []));
     }
     const [primary, secondary] = await Promise.all(fetches);
 
@@ -1744,7 +1746,7 @@ async function prefetchCovers(items) {
   for (let i = 0; i < needed.length; i += CHUNK) {
     const chunk = needed.slice(i, i + CHUNK);
     const results = await Promise.all(
-      chunk.map(s => fetch('/ids?session=' + encodeURIComponent(s)).then(r => r.json()).catch(() => ({})))
+      chunk.map(s => fetch(API_BASE + '/ids?session=' + encodeURIComponent(s)).then(r => r.json()).catch(() => ({})))
     );
     chunk.forEach((s, j) => { if (results[j] && results[j].anilist) idMap[s] = results[j].anilist; });
   }
@@ -1806,7 +1808,7 @@ function getCoverData(session, titleHint) {
     // 1. AniList by ID
     if (session) {
       try {
-        const ids = await fetch('/ids?session=' + encodeURIComponent(session)).then(r => r.json());
+        const ids = await fetch(API_BASE + '/ids?session=' + encodeURIComponent(session)).then(r => r.json());
         if (ids && ids.anilist) {
           const m = await _batchAniList({ [cacheKey]: ids.anilist });
           if (m[cacheKey]) return m[cacheKey];
@@ -2031,7 +2033,7 @@ async function loadTrendingAndRecent() {
   const [heroData, trendingItems, recentResult] = await Promise.all([
     _fetchAniListHero(),
     _fetchAniListTrending(),
-    fetch('/latest?page=1').then(r => r.json()).catch(() => [])
+    fetch(API_BASE + '/latest?page=1').then(r => r.json()).catch(() => [])
   ]);
 
   const recentData = Array.isArray(recentResult) ? recentResult : [];
@@ -2666,7 +2668,7 @@ async function checkAvailable(title, airingAt) {
   _avail[key] = 'checking';
   const { searchTitle, aliased } = resolveSearchTitle(title);
   try {
-    const res  = await fetch('/search?q=' + encodeURIComponent(searchTitle));
+    const res  = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
     const data = await res.json();
     let found = false;
     if (Array.isArray(data) && data.length) {

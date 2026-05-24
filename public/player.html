@@ -561,9 +561,6 @@ async function playEpisode(ep) {
 
 
 
-// Stores the kwik referer for the currently playing stream so hls.js can inject it
-let _currentReferer = 'https://kwik.cx/';
-
 async function loadSource(src) {
   updateQualityActive(src);
   showLoading(`Resolving ${src.quality} stream…`);
@@ -586,20 +583,7 @@ function _playUrl(url) {
   if (hls) { hls.destroy(); hls = null; }
 
   if (Hls.isSupported()) {
-    hls = new Hls({
-      enableWorker: true,
-      lowLatencyMode: false,
-      // Use fetchSetup (Fetch API) instead of xhrSetup (XHR).
-      // Browsers block Referer via XHR but allow it via fetch() with custom headers.
-      fetchSetup: function(context, initParams) {
-        initParams.headers = Object.assign({}, initParams.headers || {}, {
-          'Referer': _currentReferer,
-        });
-        initParams.mode = 'cors';
-        initParams.credentials = 'omit';
-        return new Request(context.url, initParams);
-      },
-    });
+    hls = new Hls({ enableWorker: true, lowLatencyMode: false });
     hls.loadSource(url);
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -610,11 +594,7 @@ function _playUrl(url) {
       if (d.fatal) { hideLoading(); toast('Stream error — try a different quality', 'err'); }
     });
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    // Safari native HLS — can't inject headers, fall back to proxy_url
-    fetch(`${API}/m3u8?url=${encodeURIComponent(_lastSrcUrl || url)}`)
-      .then(r => r.json())
-      .then(data => { video.src = data.proxy_url || url; })
-      .catch(() => { video.src = url; });
+    video.src = url;
     video.addEventListener('loadedmetadata', () => {
       hideLoading();
       if (plyr) plyr.play().catch(() => {});

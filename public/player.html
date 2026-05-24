@@ -356,7 +356,11 @@ function _swapSource(src) {
   showLoading(`Switching to ${src.quality}${src.fansub ? ' · ' + src.fansub : ''}…`);
   fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`)
     .then(r => r.json())
-    .then(data => { _playUrl(data.proxy_url); })
+    .then(data => { 
+      // เช็คก่อนว่า url ที่ได้มาเต็มรูปแบบหรือยัง ถ้ายังให้เติม API เข้าไปข้างหน้า
+      const fullProxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API}${data.proxy_url}`;
+      _playUrl(fullProxyUrl); 
+    })
     .catch(() => { hideLoading(); toast(`Failed to switch quality`, 'err'); });
 }
 
@@ -567,8 +571,10 @@ async function loadSource(src) {
   try {
     const res = await fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`);
     const data = await res.json();
-    // Use proxy_url — the server proxy handles Referer injection for us
-    startPlayback(data.proxy_url);
+    
+    // เติม API นำหน้าเหมือนจุดแรก
+    const fullProxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API}${data.proxy_url}`;
+    startPlayback(fullProxyUrl);
   } catch {
     hideLoading();
     toast(`Failed to resolve ${src.quality} stream`, 'err');

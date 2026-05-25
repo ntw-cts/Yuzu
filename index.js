@@ -139,7 +139,7 @@ app.get('/m3u8', async (req, res) => {
         'Referer': result.referer,
         'Origin': result.origin
       },
-      proxy_url: `/proxy?url=${encodeURIComponent(result.m3u8)}&referer=${encodeURIComponent(result.referer)}`
+      proxy_url: `https://yellow-bar-9083.ntw-cts.workers.dev/proxy?url=${encodeURIComponent(result.m3u8)}&referer=${encodeURIComponent(result.referer)}`
     });
   } catch (error) {
     console.error('M3U8 resolution error:', error);

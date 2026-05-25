@@ -418,6 +418,16 @@
 
 <script>
 const API = 'https://animepaheapi-1.onrender.com';
+
+// Changed to an array format to match index.html and support regex rules
+const TITLE_ALIAS_MAP = [
+  { match: /re.?zero/i, alias: 'Re:Zero kara Hajimeru Isekai Seikatsu' },
+  { match: /^op$/i,     alias: 'one piece' },
+  { match: /^fma$/i,    alias: 'fullmetal alchemist' },
+  { match: /^aot$/i,    alias: 'shingeki no kyojin' },
+  { match: /^hxs$/i,    alias: 'hunter x hunter' }
+];
+
 let hls = null;
 let plyr = null;
 let selectedAnime = null;
@@ -428,16 +438,13 @@ let focusIdx = -1;
 let dropdownItems = [];
 let currentAudioLang = 'jpn';
 
+// Global state tracking user's actual quality string preference
+let preferredQuality = localStorage.getItem('yuzu_preferred_quality') || '1080p';
+
 // ── PROXY URL RESOLVER ────────────────────────────────────────────────────────
-// The API's /m3u8 endpoint returns a proxy_url that may be:
-//   1. An absolute URL already (starts with http) → use as-is
-//   2. A relative path (starts with /) → prepend API base origin
-// This ensures .m3u8 playlists AND their .ts segment URLs all route
-// through the API server (avoiding CORS/blocked CDN direct access).
 function resolveProxyUrl(proxyUrl) {
   if (!proxyUrl) return '';
   if (proxyUrl.startsWith('http')) return proxyUrl;
-  // Extract origin from API constant (e.g. https://animepaheapi-b8oh.onrender.com)
   try {
     const origin = new URL(API).origin;
     return origin + proxyUrl;
@@ -447,21 +454,16 @@ function resolveProxyUrl(proxyUrl) {
 }
 
 // ── QUALITY STATE ────────────────────────────────────────────────────────────
-// We use Plyr's native quality menu. Each source gets an integer "quality index"
-// as its ID. Plyr renders them in its gear ⚙ settings panel automatically.
-// On qualitychange we swap the HLS stream to the selected source URL.
-let _qualitySources = [];   // ordered list of deduped sources
-let _activeQualityIdx = -1; // index into _qualitySources
+let _qualitySources = [];   
+let _activeQualityIdx = -1; 
 
 function srcKey(src) { return src.quality + '|' + (src.fansub || ''); }
 function qVal(q) { return parseInt(q) || 0; }
 
 // ── PLYR INIT ─────────────────────────────────────────────────────────────────
-// Called once. We recreate Plyr each time sources change so quality options update.
 function _buildPlyr(qualityOptions, defaultQuality) {
   if (plyr) { try { plyr.destroy(); } catch(_) {} plyr = null; }
 
-  // i18n labels: map each integer index → "1080p · SubsPlease" style label
   const qualityLabels = {};
   qualityOptions.forEach((idx, i) => {
     const src = _qualitySources[i];
@@ -469,6 +471,7 @@ function _buildPlyr(qualityOptions, defaultQuality) {
   });
 
   plyr = new Plyr('#videoEl', {
+    storage: { enabled: false }, // Turn off native index caching to prevent mismatched setups
     controls: ['play-large','play','rewind','fast-forward','current-time','progress','duration','mute','volume','captions','settings','pip','airplay','fullscreen'],
     settings: ['quality','speed'],
     quality: {
@@ -479,6 +482,9 @@ function _buildPlyr(qualityOptions, defaultQuality) {
         const src = _qualitySources[idx];
         if (src && idx !== _activeQualityIdx) {
           _activeQualityIdx = idx;
+          // Store actual resolution string so it transitions cleanly across various titles
+          preferredQuality = src.quality;
+          localStorage.setItem('yuzu_preferred_quality', preferredQuality);
           _swapSource(src);
         }
       },
@@ -490,7 +496,6 @@ function _buildPlyr(qualityOptions, defaultQuality) {
   });
 }
 
-// Swap HLS source without re-initing Plyr, saving playback position
 function _swapSource(src) {
   showLoading(`Switching to ${src.quality}${src.fansub ? ' · ' + src.fansub : ''}…`);
   fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`)
@@ -522,38 +527,7 @@ async function checkHealth() {
 checkHealth();
 setInterval(checkHealth, 30000);
 
-// ── TITLE ALIAS MAP (mirrors index.html — keep in sync) ───────────────────────
-const TITLE_ALIAS_MAP = [
-  {
-    match: /re.?zero.{0,80}(season\s*4|4th\s*season|4th)/i,
-    alias: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
-  },
-];
-function resolveSearchTitle(title) {
-  for (const entry of TITLE_ALIAS_MAP) {
-    if (entry.match.test(title)) return { searchTitle: entry.alias, aliased: true };
-  }
-  return { searchTitle: title, aliased: false };
-}
-
-// Bigram similarity helpers (mirrors index.html)
-function _norm(s) { return (s||'').toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim(); }
-function _bigrams(s) { const set=new Set(); for(let i=0;i<s.length-1;i++) set.add(s.slice(i,i+2)); return set; }
-function _similarity(a,b) {
-  if(a===b) return 1; if(!a||!b) return 0;
-  const ba=_bigrams(a),bb=_bigrams(b); let x=0;
-  ba.forEach(bg=>{if(bb.has(bg))x++;}); return(2*x)/(ba.size+bb.size);
-}
-function _pickBest(results, searchTitle, aliased, targetYear) {
-  if(aliased) return results[0];
-  const normTarget=_norm(searchTitle);
-  function score(r){ let s=_similarity(normTarget,_norm(r.title||'')); if(targetYear&&r.year){if(r.year===targetYear)s+=0.3;else s-=0.15*Math.min(1,Math.abs(r.year-targetYear)/4);} return s; }
-  const sorted=results.slice().sort((a,b)=>score(b)-score(a));
-  const best=sorted[0]; const rawSim=_similarity(normTarget,_norm(best.title||''));
-  return rawSim>=0.72?best:null;
-}
-
-// ── SEARCH: AniList → EN display, romaji resolves scraper session on click ────
+// ── SEARCH ────────────────────────────────────────────────────────────────────
 const searchInput = document.getElementById('searchInput');
 const dropdown    = document.getElementById('dropdown');
 const spinner     = document.getElementById('searchSpinner');
@@ -564,13 +538,18 @@ searchInput.addEventListener('input', () => {
   if (!q) { closeDropdown(); return; }
   searchTimer = setTimeout(() => doSearch(q), 380);
 });
+
 searchInput.addEventListener('keydown', e => {
   if (!dropdown.classList.contains('open')) return;
   if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
   if (e.key === 'ArrowUp')   { e.preventDefault(); moveFocus(-1); }
-  if (e.key === 'Enter') { const el = dropdownItems[focusIdx]||dropdownItems[0]; if(el) el.click(); }
+  if (e.key === 'Enter') {
+    const el = dropdownItems[focusIdx] || dropdownItems[0];
+    if (el) el.click();
+  }
   if (e.key === 'Escape') closeDropdown();
 });
+
 document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) closeDropdown(); });
 
 function moveFocus(dir) {
@@ -581,93 +560,46 @@ function moveFocus(dir) {
   dropdownItems[focusIdx].scrollIntoView({ block: 'nearest' });
 }
 
-async function _anilistSearch(q) {
-  const query = `{Page(page:1,perPage:8){media(search:${JSON.stringify(q)},type:ANIME,sort:SEARCH_MATCH,isAdult:false){id title{english romaji}coverImage{large extraLarge}format seasonYear episodes status(version:2)}}}`;
-  try {
-    const res  = await fetch('https://graphql.anilist.co', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query}) });
-    const json = await res.json();
-    return (json.data&&json.data.Page&&json.data.Page.media)||[];
-  } catch(_){ return []; }
-}
-
 async function doSearch(q) {
-  spinner.classList.add('active');
-  dropdown.innerHTML = '<div class="dropdown-empty">Searching…</div>';
-  dropdown.classList.add('open');
-  focusIdx = -1; dropdownItems = [];
-
-  try {
-    const alResults = await _anilistSearch(q);
-    if (!alResults.length) {
-      dropdown.innerHTML = '<div class="dropdown-empty">No results found</div>';
-      spinner.classList.remove('active');
-      return;
+  for (const rule of TITLE_ALIAS_MAP) {
+    if (rule.match.test(q)) {
+      q = rule.alias;
+      break;
     }
+  }
 
-    dropdown.innerHTML = '';
-    const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-
-    alResults.forEach((m, i) => {
-      const displayTitle = (m.title&&(m.title.english||m.title.romaji))||'';
-      const scraperTitle = (m.title&&(m.title.romaji||m.title.english))||displayTitle;
-      const cover = (m.coverImage&&(m.coverImage.extraLarge||m.coverImage.large))||BLANK;
-      const fmtMap = {TV:'TV',TV_SHORT:'TV Short',MOVIE:'Movie',SPECIAL:'Special',OVA:'OVA',ONA:'ONA',MUSIC:'Music'};
-      const typeBadge = fmtMap[m.format]||m.format||'TV';
-      const year = m.seasonYear||null;
-      const metaParts = [typeBadge];
-      if (year) metaParts.push(String(year));
-      if (m.episodes) metaParts.push(m.episodes+' ep');
-
-      const el = document.createElement('div');
-      el.className = 'dropdown-item'+(i===0?' focused':'');
-      el.innerHTML =
-        '<img src="'+cover+'" onerror="this.src=\''+BLANK+'\'" loading="lazy" style="background:var(--bg4)">' +
-        '<div class="di-info">' +
-          '<div class="di-title">'+esc(displayTitle)+'</div>' +
-          '<div class="di-meta">'+esc(metaParts.join(' · '))+'</div>' +
-        '</div>' +
-        '<span class="di-badge">'+esc(typeBadge)+'</span>';
-
-      el.addEventListener('click', async () => {
-        closeDropdown();
-        searchInput.value = displayTitle;
-        await _selectByScraperTitle(displayTitle, scraperTitle, year, cover);
+  spinner.classList.add('active');
+  dropdown.innerHTML = '';
+  dropdown.classList.add('open');
+  focusIdx = -1;
+  dropdownItems = [];
+  
+  try {
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) {
+      dropdown.innerHTML = '<div class="dropdown-empty">No results found</div>';
+    } else {
+      data.forEach((item, i) => {
+        const el = document.createElement('div');
+        el.className = 'dropdown-item' + (i === 0 ? ' focused' : '');
+        el.innerHTML = `
+          <img src="${esc(item.poster)}" onerror="this.style.visibility='hidden'" loading="lazy">
+          <div class="di-info">
+            <div class="di-title">${esc(item.title)}</div>
+            <div class="di-meta">${item.year} · ${esc(item.type)}</div>
+          </div>
+          <span class="di-badge">${esc(item.type)}</span>`;
+        el.addEventListener('click', () => selectAnime(item));
+        dropdown.appendChild(el);
+        dropdownItems.push(el);
       });
-
-      dropdown.appendChild(el);
-      dropdownItems.push(el);
-    });
-    focusIdx = 0;
-  } catch(_) {
-    dropdown.innerHTML = '<div class="dropdown-empty">Search failed</div>';
+      focusIdx = 0;
+    }
+  } catch (err) {
+    dropdown.innerHTML = '<div class="dropdown-empty">Search failed — is the server running?</div>';
   }
   spinner.classList.remove('active');
-}
-
-// Resolve romaji title → scraper session → selectAnime (same logic as goWatch in index.html)
-async function _selectByScraperTitle(displayTitle, scraperTitle, targetYear, cover) {
-  const { searchTitle, aliased } = resolveSearchTitle(scraperTitle);
-  try {
-    toast('Searching for '+displayTitle+'…', 'warn', 4000);
-    const res = await fetch(`${API}/search?q=${encodeURIComponent(searchTitle)}`);
-    const results = await res.json();
-
-    if (!Array.isArray(results)||!results.length) {
-      // Fallback: try English title
-      const res2 = await fetch(`${API}/search?q=${encodeURIComponent(displayTitle)}`).then(r=>r.json()).catch(()=>[]);
-      if (!Array.isArray(res2)||!res2.length) { toast('Not found on AnimePahe', 'err'); return; }
-      const best2 = _pickBest(res2, displayTitle, false, targetYear);
-      if (!best2) { toast('No close match for: '+displayTitle, 'err'); return; }
-      await selectAnime({ ...best2, title: displayTitle, poster: cover||best2.poster||'' });
-      return;
-    }
-
-    const best = _pickBest(results, searchTitle, aliased, targetYear);
-    if (!best) { toast('No close match for: '+displayTitle, 'err'); return; }
-    await selectAnime({ ...best, title: displayTitle, poster: cover||best.poster||'' });
-  } catch(_) {
-    toast('Could not reach server', 'err');
-  }
 }
 
 function closeDropdown() {
@@ -715,6 +647,7 @@ function renderEpisodes(eps) {
     list.appendChild(card);
   });
 }
+
 // ── AUDIO TOGGLE ──────────────────────────────────────────────────────────────
 async function setAudioLang(lang) {
   if (currentAudioLang === lang) return;
@@ -724,19 +657,24 @@ async function setAudioLang(lang) {
   document.getElementById('btnSub').classList.toggle('active', currentAudioLang === 'jpn');
   document.getElementById('btnDub').classList.toggle('active', currentAudioLang === 'eng');
 
-  // If we already have sources loaded, switch the stream
   if (sources.length) {
-    renderQuality(sources);
-    const best = getBestSourceForLang(lang);
-    if (best) await loadSource(best);
+    const chosen = getInitialSource(sources, lang, preferredQuality);
+    renderQuality(sources, chosen);
+    if (chosen) await loadSource(chosen);
   }
 }
 
-function getBestSourceForLang(lang) {
-  return [...sources]
-    .filter(s => (s.audio || 'jpn') === lang)
-    .sort((a,b) => qVal(b.quality) - qVal(a.quality))[0];
+// Safely attempts to match target stored quality resolution string, else drops back to highest
+function getInitialSource(srcs, lang, prefQuality) {
+  const langSrcs = srcs.filter(s => (s.audio || 'jpn') === lang);
+  if (!langSrcs.length) return null;
+  
+  const match = langSrcs.find(s => s.quality === prefQuality);
+  if (match) return match;
+  
+  return langSrcs.sort((a,b) => qVal(b.quality) - qVal(a.quality))[0];
 }
+
 // ── PLAY EPISODE ──────────────────────────────────────────────────────────────
 async function playEpisode(ep) {
   currentEp = ep;
@@ -748,13 +686,8 @@ async function playEpisode(ep) {
   showLoading('Fetching sources…');
   clearQuality();
 
-  // PWA standalone fix: iOS in Add-to-Home-Screen mode requires video.play()
-  // to be called synchronously within the user gesture. Pre-unlock the audio
-  // context and video element RIGHT NOW before any await, so the gesture token
-  // is still valid when we eventually call plyr.play().
   const video = document.getElementById('videoEl');
   if (navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
-    // Set a silent src and call play() to unlock the media element in this gesture tick
     if (!video._pwaUnlocked) {
       video.muted = true;
       const silentPromise = video.play();
@@ -768,7 +701,6 @@ async function playEpisode(ep) {
     sources = await res.json();
     if (!sources.length) throw new Error('no sources');
 
-    // UI Logic: Check if English Dub exists
     const hasDub = sources.some(s => s.audio === 'eng');
     document.getElementById('audioToggle').style.display = 'flex';
     const btnDub = document.getElementById('btnDub');
@@ -777,7 +709,6 @@ async function playEpisode(ep) {
       btnDub.disabled = true;
       btnDub.title = "No English Dub available";
       if (currentAudioLang === 'eng') {
-        // Fallback to sub if they had dub selected from a previous episode
         currentAudioLang = 'jpn';
         document.getElementById('btnSub').classList.add('active');
         btnDub.classList.remove('active');
@@ -787,16 +718,15 @@ async function playEpisode(ep) {
       btnDub.title = "";
     }
 
-    renderQuality(sources); // We removed 'ep' arg since it wasn't used
-    const best = getBestSourceForLang(currentAudioLang);
-    if (best) await loadSource(best);
+    // Pass the calculated ideal source structure straight to configuration pipeline
+    const chosen = getInitialSource(sources, currentAudioLang, preferredQuality);
+    renderQuality(sources, chosen); 
+    if (chosen) await loadSource(chosen);
   } catch {
     hideLoading();
     toast('Failed to get sources for this episode', 'err');
   }
 }
-
-
 
 async function loadSource(src) {
   updateQualityActive(src);
@@ -812,7 +742,6 @@ async function loadSource(src) {
   }
 }
 
-// _playUrl: attach an HLS stream URL to the existing Plyr instance
 function _playUrl(url) {
   document.getElementById('playerPlaceholder').style.display = 'none';
   const video = document.getElementById('videoEl');
@@ -823,11 +752,7 @@ function _playUrl(url) {
     hls = new Hls({
       enableWorker: true,
       lowLatencyMode: false,
-      // Route all segment/manifest XHR requests through the API proxy if they
-      // are relative paths (the rewritten m3u8 may contain relative .ts URLs).
-      // xhrSetup lets us rewrite the URL before the request fires.
       xhrSetup: function(xhr, segUrl) {
-        // If the segment URL is not absolute, resolve it via the API origin
         if (segUrl && !segUrl.startsWith('http')) {
           try {
             const origin = new URL(API).origin;
@@ -842,7 +767,6 @@ function _playUrl(url) {
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       hideLoading();
       const video = document.getElementById('videoEl');
-      // Restore unmuted state after PWA unlock, then play
       video.muted = false;
       if (plyr) plyr.play().catch(() => {});
     });
@@ -865,10 +789,9 @@ function _playUrl(url) {
 function startPlayback(url) { _playUrl(url); }
 
 // ── QUALITY ──────────────────────────────────────────────────────────────────
-function renderQuality(srcs) {
+function renderQuality(srcs, loadedSrc) {
   const seen = new Set();
   
-  // Filter by current language BEFORE sorting and deduping
   _qualitySources = [...srcs]
     .filter(src => (src.audio || 'jpn') === currentAudioLang)
     .sort((a,b) => qVal(b.quality) - qVal(a.quality))
@@ -880,21 +803,25 @@ function renderQuality(srcs) {
     });
 
   const options = _qualitySources.map((_, i) => i);
-  const defaultIdx = 0; 
+  
+  // Calculate index alignment based on what we are streaming right now
+  let defaultIdx = 0;
+  if (loadedSrc) {
+    const idx = _qualitySources.findIndex(s => srcKey(s) === srcKey(loadedSrc));
+    if (idx !== -1) defaultIdx = idx;
+  }
   _activeQualityIdx = defaultIdx;
 
   _buildPlyr(options, defaultIdx);
 }
 
-
 function updateQualityActive(src) {
-  // Nothing to do — Plyr tracks selection via its onChange callback
+  // Plyr manages active tracking via options index mapping
 }
 
 function clearQuality() {
   _qualitySources = [];
   _activeQualityIdx = -1;
-  // Rebuild Plyr without quality options
   if (plyr) { try { plyr.destroy(); } catch(_) {} plyr = null; }
 }
 
@@ -947,7 +874,6 @@ function toast(msg, type='warn', dur=4000) {
 
   if (!session) return;
 
-  // If no poster in URL, try to resolve it from /ids + AniList
   if (!poster) {
     try {
       const ids = await fetch(`${API}/ids?session=` + encodeURIComponent(session)).then(r => r.json());
@@ -966,10 +892,8 @@ function toast(msg, type='warn', dur=4000) {
     } catch (_) {}
   }
 
-  // selectAnime loads episodes and stores them in window._loadedEpisodes
   await selectAnime({ session, title, poster, snapshot: '' });
 
-  // Auto-play first episode (or specific one if ?ep= given)
   const eps = window._loadedEpisodes || [];
   if (!eps.length) return;
   const target = epParam ? eps.find(e => String(e.number) === epParam) : null;
@@ -996,7 +920,6 @@ function toast(msg, type='warn', dur=4000) {
   backdrop.addEventListener('click', closeDrawer);
   drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer));
 
-  // Sync status dot + text into drawer
   const topDot  = document.getElementById('statusDot');
   const topText = document.getElementById('statusText');
   const mobDot  = document.getElementById('mobStatusDot');

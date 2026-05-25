@@ -657,7 +657,6 @@ function getBestSourceForLang(lang) {
     .sort((a,b) => qVal(b.quality) - qVal(a.quality))[0];
 }
 // ── PLAY EPISODE ──────────────────────────────────────────────────────────────
-// ── PLAY EPISODE ──────────────────────────────────────────────────────────────
 async function playEpisode(ep) {
   currentEp = ep;
   document.querySelectorAll('.ep-card').forEach(c => c.classList.remove('active'));
@@ -667,6 +666,21 @@ async function playEpisode(ep) {
   updateEpInfoBar(ep);
   showLoading('Fetching sources…');
   clearQuality();
+
+  // PWA standalone fix: iOS in Add-to-Home-Screen mode requires video.play()
+  // to be called synchronously within the user gesture. Pre-unlock the audio
+  // context and video element RIGHT NOW before any await, so the gesture token
+  // is still valid when we eventually call plyr.play().
+  const video = document.getElementById('videoEl');
+  if (navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+    // Set a silent src and call play() to unlock the media element in this gesture tick
+    if (!video._pwaUnlocked) {
+      video.muted = true;
+      const silentPromise = video.play();
+      if (silentPromise) silentPromise.catch(() => {});
+      video._pwaUnlocked = true;
+    }
+  }
 
   try {
     const res = await fetch(`${API}/sources?anime_session=${selectedAnime.session}&episode_session=${ep.session}`);
@@ -746,6 +760,9 @@ function _playUrl(url) {
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       hideLoading();
+      const video = document.getElementById('videoEl');
+      // Restore unmuted state after PWA unlock, then play
+      video.muted = false;
       if (plyr) plyr.play().catch(() => {});
     });
     hls.on(Hls.Events.ERROR, (_, d) => {
@@ -755,6 +772,7 @@ function _playUrl(url) {
     video.src = url;
     video.addEventListener('loadedmetadata', () => {
       hideLoading();
+      video.muted = false;
       if (plyr) plyr.play().catch(() => {});
     }, { once: true });
   } else {

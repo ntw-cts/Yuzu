@@ -1308,6 +1308,34 @@ function resolveSearchTitle(title) {
   return { searchTitle: title, aliased: false };
 }
 
+// ── AniList title resolver: given any query (EN or JP), returns
+//    { romaji, english, seasonYear } from AniList, or null on failure.
+//    Used to translate user-visible EN titles → romaji for backend search.
+async function _resolveAniListTitle(query) {
+  if (!query) return null;
+  const q = `{
+    Page(page:1,perPage:1){
+      media(search:${JSON.stringify(query)},type:ANIME,sort:SEARCH_MATCH){
+        title{romaji english} seasonYear
+      }
+    }
+  }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q })
+    });
+    const json = await res.json();
+    const m = json.data && json.data.Page && json.data.Page.media && json.data.Page.media[0];
+    if (!m) return null;
+    return {
+      romaji: m.title && m.title.romaji || null,
+      english: m.title && m.title.english || null,
+      seasonYear: m.seasonYear || null,
+    };
+  } catch(_) { return null; }
+}
+
 // Shared text-matching helpers used by goWatch / goWatchEpisode / checkAvailable
 function _norm(s) {
   return (s || '').toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1355,18 +1383,46 @@ async function goWatch(anime) {
   }
   const displayTitle = anime.title || '';
   if (!displayTitle) return;
-  const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
+
+  // Prefer romaji (JP) for backend search; fall back to alias map then EN title
+  const { searchTitle: aliasTitle, aliased } = resolveSearchTitle(displayTitle);
+  let backendTitle = aliasTitle;
+  let targetYear   = anime.seasonYear || anime.year || null;
+
+  if (!aliased) {
+    // Resolve EN → romaji via AniList for a better backend match
+    const alResult = await _resolveAniListTitle(displayTitle);
+    if (alResult && alResult.romaji) {
+      backendTitle = alResult.romaji;
+      if (!targetYear && alResult.seasonYear) targetYear = alResult.seasonYear;
+    }
+  }
+
   try {
     toast('Searching for ' + displayTitle + '…', 'warn', 4000);
-    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
+    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(backendTitle));
     const results = await res.json();
     if (!Array.isArray(results) || !results.length) {
+      // Retry with raw EN title as fallback
+      if (backendTitle !== displayTitle) {
+        const res2 = await fetch(API_BASE + '/search?q=' + encodeURIComponent(displayTitle));
+        const results2 = await res2.json().catch(() => []);
+        if (Array.isArray(results2) && results2.length) {
+          const best2 = _pickBest(results2, displayTitle, false, targetYear);
+          if (best2) {
+            window.location.href = 'player.html?session=' + encodeURIComponent(best2.session || best2.anime_session || '')
+              + '&title=' + encodeURIComponent(displayTitle)
+              + (best2.poster ? '&poster=' + encodeURIComponent(best2.poster) : '');
+            return;
+          }
+        }
+      }
       toast('Not found on AnimePahe', 'err'); return;
     }
-    const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    const best = _pickBest(results, backendTitle, aliased, targetYear);
     if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
     window.location.href = 'player.html?session=' + encodeURIComponent(best.session || best.anime_session || '')
-      + '&title=' + encodeURIComponent(displayTitle) // keep English title in URL for player display
+      + '&title=' + encodeURIComponent(displayTitle) // keep English title for player display
       + (best.poster ? '&poster=' + encodeURIComponent(best.poster) : '');
   } catch(_) {
     toast('Could not reach server', 'err');
@@ -1384,13 +1440,25 @@ async function goWatchEpisode(anime, episode) {
   }
   const displayTitle = anime.title || '';
   if (!displayTitle) return;
-  const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
+
+  const { searchTitle: aliasTitle, aliased } = resolveSearchTitle(displayTitle);
+  let backendTitle = aliasTitle;
+  let targetYear   = anime.seasonYear || anime.year || null;
+
+  if (!aliased) {
+    const alResult = await _resolveAniListTitle(displayTitle);
+    if (alResult && alResult.romaji) {
+      backendTitle = alResult.romaji;
+      if (!targetYear && alResult.seasonYear) targetYear = alResult.seasonYear;
+    }
+  }
+
   try {
     toast('Searching for ' + displayTitle + '…', 'warn', 4000);
-    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
+    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(backendTitle));
     const results = await res.json();
     if (!Array.isArray(results) || !results.length) { toast('Not found on AnimePahe', 'err'); return; }
-    const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    const best = _pickBest(results, backendTitle, aliased, targetYear);
     if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
     window.location.href = 'player.html?session=' + encodeURIComponent(best.session || best.anime_session || '')
       + '&title=' + encodeURIComponent(displayTitle)
@@ -1450,13 +1518,30 @@ async function doSearch(q) {
   dropdown.classList.add('open');
   focusIdx = -1; ddItems = [];
   try {
-    const { searchTitle, aliased } = resolveSearchTitle(q);
+    // 1. Check hard-coded alias map first
+    const { searchTitle: aliasTitle, aliased } = resolveSearchTitle(q);
 
-    // If an alias exists, query the provider with the romaji title.
-    // Otherwise query normally. In both cases also run the original user
-    // query in parallel so we surface anything the alias might miss.
-    const fetches = [fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => [])];
-    if (aliased) {
+    // 2. Resolve via AniList to get romaji (JP) for backend + english for display.
+    //    Run alias resolution and AniList lookup in parallel.
+    const alResolveP = _resolveAniListTitle(q);
+
+    // 3. Decide the backend query term:
+    //    - Hard alias takes priority
+    //    - Otherwise use AniList romaji (JP title) for better backend matches
+    //    - Fall back to the raw user query if AniList is unavailable
+    const alResult = await alResolveP;
+    const backendQuery = aliased ? aliasTitle : (alResult && alResult.romaji ? alResult.romaji : q);
+    // The display title we'll show the user: prefer EN, fall back to romaji, then raw query
+    const displayTitle = alResult && (alResult.english || alResult.romaji) || q;
+    const targetYear   = alResult && alResult.seasonYear || null;
+
+    // 4. Search backend with JP/romaji title; also run original user query in
+    //    parallel to catch anything that might only match by EN name on the backend.
+    const fetches = [
+      fetch(API_BASE + '/search?q=' + encodeURIComponent(backendQuery)).then(r => r.json()).catch(() => []),
+    ];
+    // If the backend query differs from user's raw input, search raw too as a safety net
+    if (backendQuery.toLowerCase() !== q.toLowerCase()) {
       fetches.push(fetch(API_BASE + '/search?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => []));
     }
     const [primary, secondary] = await Promise.all(fetches);
@@ -1476,18 +1561,22 @@ async function doSearch(q) {
       dropdown.innerHTML = '<div class="dd-empty">No results found</div>';
     } else {
       data.forEach((item, i) => {
+        // Show EN/display title in the UI; keep the backend's JP title on the item
+        // for the session lookup. For items from the primary (romaji) search we
+        // substitute the resolved EN display title when the user searched a single title.
+        const shownTitle = (i === 0 && data.length === 1) ? displayTitle : item.title;
         const el = document.createElement('div');
         el.className = 'dd-item' + (i === 0 ? ' focused' : '');
         el.innerHTML =
           '<img src="' + BLANK + '" style="background:var(--bg3)" loading="lazy">' +
-          '<div class="dd-info"><div class="dd-title">' + esc(item.title) + '</div>' +
+          '<div class="dd-info"><div class="dd-title">' + esc(shownTitle) + '</div>' +
           '<div class="dd-meta">Ep ' + esc(item.episode||'') + ' · ' + esc(item.type||'TV') + '</div></div>' +
           '<span class="dd-badge">' + esc(item.type||'TV') + '</span>';
-        // Click navigates directly by session — no secondary search needed
+        // Navigate by session; pass the user-visible EN title to the player
         el.addEventListener('click', () => {
           closeDD();
           window.location.href = 'player.html?session=' + encodeURIComponent(item.session||item.anime_session||'')
-            + '&title=' + encodeURIComponent(item.title||'')
+            + '&title=' + encodeURIComponent(shownTitle)
             + (item.poster ? '&poster=' + encodeURIComponent(item.poster) : '');
         });
         dropdown.appendChild(el);

@@ -1039,7 +1039,7 @@ body {
     <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     Home
   </a>
-  <a href="player" id="mobNavWatch">
+  <a href="/watch" id="mobNavWatch">
     <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
     Watch
   </a>
@@ -1075,7 +1075,7 @@ body {
   <a href="/" class="logo">YU<span>ZU</span></a>
   <nav class="nav">
     <a href="/" class="active" id="navHome">Home</a>
-    <a href="player">Watch</a>
+    <a href="/watch">Watch</a>
     <a href="#trending" id="navTrending">Trending</a>
     <a href="#new" id="navNew">New</a>
     <a href="#" id="navCalendar" class="nav-calendar-btn">
@@ -1349,7 +1349,7 @@ function _pickBest(results, searchTitle, aliased, targetYear) {
 async function goWatch(anime) {
   const session = anime.anime_session || anime.session || '';
   if (session) {
-    window.location.href = 'player?session=' + encodeURIComponent(session)
+    window.location.href = '/watch?session=' + encodeURIComponent(session)
       + '&title=' + encodeURIComponent(anime.title || '');
     return;
   }
@@ -1365,7 +1365,7 @@ async function goWatch(anime) {
     }
     const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
     if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
-    window.location.href = 'player?session=' + encodeURIComponent(best.session || best.anime_session || '')
+    window.location.href = '/watch?session=' + encodeURIComponent(best.session || best.anime_session || '')
       + '&title=' + encodeURIComponent(displayTitle) // keep English title in URL for player display
       + (best.poster ? '&poster=' + encodeURIComponent(best.poster) : '');
   } catch(_) {
@@ -1378,7 +1378,7 @@ async function goWatchEpisode(anime, episode) {
   const session = anime.anime_session || anime.session || '';
   const epParam = episode ? '&episode=' + encodeURIComponent(episode) : '';
   if (session) {
-    window.location.href = 'player?session=' + encodeURIComponent(session)
+    window.location.href = '/watch?session=' + encodeURIComponent(session)
       + '&title=' + encodeURIComponent(anime.title || '') + epParam;
     return;
   }
@@ -1392,7 +1392,7 @@ async function goWatchEpisode(anime, episode) {
     if (!Array.isArray(results) || !results.length) { toast('Not found on AnimePahe', 'err'); return; }
     const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
     if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
-    window.location.href = 'player?session=' + encodeURIComponent(best.session || best.anime_session || '')
+    window.location.href = '/watch?session=' + encodeURIComponent(best.session || best.anime_session || '')
       + '&title=' + encodeURIComponent(displayTitle)
       + (best.poster ? '&poster=' + encodeURIComponent(best.poster) : '')
       + epParam;
@@ -1486,7 +1486,7 @@ async function doSearch(q) {
         // Click navigates directly by session — no secondary search needed
         el.addEventListener('click', () => {
           closeDD();
-          window.location.href = 'player?session=' + encodeURIComponent(item.session||item.anime_session||'')
+          window.location.href = '/watch?session=' + encodeURIComponent(item.session||item.anime_session||'')
             + '&title=' + encodeURIComponent(item.title||'')
             + (item.poster ? '&poster=' + encodeURIComponent(item.poster) : '');
         });
@@ -1736,7 +1736,7 @@ function openModalForSession(session, title, item) {
 
 function buildWatchHref(item) {
   const session = item.anime_session || item.session || '';
-  return 'player?session=' + encodeURIComponent(session) + '&title=' + encodeURIComponent(item.title || '') + (item.cover ? '&poster=' + encodeURIComponent(item.cover) : '');
+  return '/watch?session=' + encodeURIComponent(session) + '&title=' + encodeURIComponent(item.title || '') + (item.cover ? '&poster=' + encodeURIComponent(item.cover) : '');
 }
 
 function renderModal(item, watchHref) {

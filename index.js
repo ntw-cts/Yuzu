@@ -25,25 +25,7 @@ function mapErrorToStatusCode(message) {
 
 // Routes
 app.get('/', (req, res) => {
-  res.json({
-    message: 'Welcome to Animepahe API',
-    endpoints: {
-      search: '/search?q=naruto',
-      episodes: '/episodes?session=anime-session-id',
-      latest: '/latest?page=1',
-      sources: '/sources?anime_session=xxx&episode_session=yyy',
-      ids: '/ids?session=anime-session-id (returns AniList and MyAnimeList IDs)',
-      m3u8: '/m3u8?url=kwik-url (returns m3u8 URL with required referer)',
-      proxy: '/proxy?url=m3u8-or-ts-url&referer=kwik-referer (Use this to play videos)',
-      health: '/health'
-    },
-    usage: {
-      note: 'Use /proxy endpoint to stream videos through the server to bypass CORS and referrer restrictions',
-      step1: 'Get M3U8 URL and referer from /m3u8 endpoint',
-      step2: 'Use the returned proxy_url directly, or use /proxy?url=<m3u8-url>&referer=<referer> in your video player',
-      example: '/m3u8 returns { m3u8: "...", referer: "https://kwik.si/", proxy_url: "/proxy?url=..." }'
-    }
-  });
+  res.sendFile('index.html', { root: 'public' });
 });
 
 app.get('/health', (req, res) => {

@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from public directory
-app.use(express.static('public'));
+app.use(express.static(__dirname + '/public'));
 
 // Create AnimePahe instance
 const pahe = new AnimePahe();
@@ -25,7 +25,7 @@ function mapErrorToStatusCode(message) {
 
 // Routes
 app.get('/', (req, res) => {
-  res.sendFile('index.html', { root: 'public' });
+  res.sendFile(__dirname + '/public/index.html');
 });
 
 app.get('/health', (req, res) => {
@@ -33,7 +33,7 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/watch', (req, res) => {
-  res.sendFile('player.html', { root: 'public' });
+  res.sendFile(__dirname + '/public/player.html');
 });
 
 app.get('/search', async (req, res) => {

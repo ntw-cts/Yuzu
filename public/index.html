@@ -1292,8 +1292,10 @@ function toast(msg, type='warn', dur=3500) {
 // To add more aliases: append { match: /regex/i, alias: 'Provider Title' }
 const TITLE_ALIAS_MAP = [
   {
-    // Re:ZERO Season 4 — provider only finds it via romaji
-    match: /re.?zero.{0,60}season\s*4/i,
+    // Re:ZERO Season 4 — matches English "Season 4", romaji "4th Season", or
+    // the full romaji title itself so the alias fires regardless of which
+    // title form comes out of AniList / Jikan.
+    match: /re.?zero.{0,80}(season\s*4|4th\s*season|4th)/i,
     alias: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
   },
 ];
@@ -1444,62 +1446,126 @@ function closeDD() {
   dropdown.classList.remove('open'); dropdown.innerHTML = '';
   ddItems = []; focusIdx = -1;
 }
+// ── SEARCH: AniList only — no Jikan, no rate limits ─────────────────────────
+// AniList gives us: English display title, romaji scraper title, cover, metadata.
+// All in one GraphQL call. On click we use the romaji title → resolveSearchTitle
+// → scraper /search, exactly like the hero "Watch Now" button (goWatch).
+
+async function _anilistSearch(q) {
+  // Ask for both search-match order AND exact title fields so romaji is available
+  const query = `{
+    Page(page:1,perPage:8){
+      media(search:${JSON.stringify(q)},type:ANIME,sort:SEARCH_MATCH,isAdult:false){
+        id
+        title{ english romaji }
+        coverImage{ large extraLarge }
+        format seasonYear episodes status(version:2)
+      }
+    }
+  }`;
+  try {
+    const res  = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const json = await res.json();
+    return (json.data && json.data.Page && json.data.Page.media) || [];
+  } catch (_) { return []; }
+}
+
 async function doSearch(q) {
   spinner.classList.add('active');
   dropdown.innerHTML = '<div class="dd-empty">Searching…</div>';
   dropdown.classList.add('open');
   focusIdx = -1; ddItems = [];
+
   try {
-    const { searchTitle, aliased } = resolveSearchTitle(q);
+    // ── 1. Single AniList search — covers + English + romaji in one shot ──
+    const alResults = await _anilistSearch(q);
 
-    // If an alias exists, query the provider with the romaji title.
-    // Otherwise query normally. In both cases also run the original user
-    // query in parallel so we surface anything the alias might miss.
-    const fetches = [fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => [])];
-    if (aliased) {
-      fetches.push(fetch(API_BASE + '/search?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => []));
-    }
-    const [primary, secondary] = await Promise.all(fetches);
-
-    // Merge, deduplicate by session
-    const seen = new Set();
-    const data = [];
-    for (const item of [...(primary||[]), ...(secondary||[])]) {
-      const key = item.session || item.anime_session || item.id || item.title;
-      if (key && seen.has(key)) continue;
-      if (key) seen.add(key);
-      data.push(item);
+    if (!alResults.length) {
+      dropdown.innerHTML = '<div class="dd-empty">No results found</div>';
+      spinner.classList.remove('active');
+      return;
     }
 
     dropdown.innerHTML = '';
-    if (!data.length) {
-      dropdown.innerHTML = '<div class="dd-empty">No results found</div>';
-    } else {
-      data.forEach((item, i) => {
-        const el = document.createElement('div');
-        el.className = 'dd-item' + (i === 0 ? ' focused' : '');
-        el.innerHTML =
-          '<img src="' + BLANK + '" style="background:var(--bg3)" loading="lazy">' +
-          '<div class="dd-info"><div class="dd-title">' + esc(item.title) + '</div>' +
-          '<div class="dd-meta">Ep ' + esc(item.episode||'') + ' · ' + esc(item.type||'TV') + '</div></div>' +
-          '<span class="dd-badge">' + esc(item.type||'TV') + '</span>';
-        // Click navigates directly by session — no secondary search needed
-        el.addEventListener('click', () => {
-          closeDD();
-          window.location.href = 'player.html?session=' + encodeURIComponent(item.session||item.anime_session||'')
-            + '&title=' + encodeURIComponent(item.title||'')
-            + (item.poster ? '&poster=' + encodeURIComponent(item.poster) : '');
-        });
-        dropdown.appendChild(el);
-        ddItems.push(el);
-        swapImgCover(el.querySelector('img'), item.session||item.anime_session||'', item.title||null);
+
+    alResults.forEach((m, i) => {
+      // Display title: English preferred, romaji fallback (what the user sees)
+      const displayTitle = (m.title && (m.title.english || m.title.romaji)) || '';
+      // Scraper title: romaji preferred (what AnimePahe indexes), English fallback
+      const scraperTitle = (m.title && (m.title.romaji || m.title.english)) || displayTitle;
+
+      const cover = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '';
+      const fmtMap = { TV:'TV', TV_SHORT:'TV Short', MOVIE:'Movie', SPECIAL:'Special', OVA:'OVA', ONA:'ONA', MUSIC:'Music' };
+      const typeBadge = fmtMap[m.format] || m.format || 'TV';
+      const year = m.seasonYear || null;
+      const metaParts = [typeBadge];
+      if (year) metaParts.push(String(year));
+      if (m.episodes) metaParts.push(m.episodes + ' ep');
+
+      const el = document.createElement('div');
+      el.className = 'dd-item' + (i === 0 ? ' focused' : '');
+      el.innerHTML =
+        '<img src="' + esc(cover) + '" style="background:var(--bg3)" loading="lazy" onerror="this.src=\'' + BLANK + '\'">' +
+        '<div class="dd-info">' +
+          '<div class="dd-title">' + esc(displayTitle) + '</div>' +
+          '<div class="dd-meta">' + esc(metaParts.join(' · ')) + '</div>' +
+        '</div>' +
+        '<span class="dd-badge">' + esc(typeBadge) + '</span>';
+
+      // ── 2. On click: romaji title → resolveSearchTitle (alias map fires here)
+      //       → scraper /search → player. Same path as hero Watch Now button.
+      el.addEventListener('click', async () => {
+        closeDD();
+        await _goWatchByScraperTitle(displayTitle, scraperTitle, year, cover);
       });
-      focusIdx = 0;
-    }
-  } catch {
+
+      dropdown.appendChild(el);
+      ddItems.push(el);
+    });
+
+    focusIdx = 0;
+
+  } catch (_) {
     dropdown.innerHTML = '<div class="dd-empty">Search failed</div>';
   }
   spinner.classList.remove('active');
+}
+
+// Navigate to the player given a known romaji/scraper title.
+// displayTitle  → shown in the player header (English)
+// scraperTitle  → used for the /search query (romaji — AnimePahe understands this)
+// The alias map in resolveSearchTitle fires here, just like it does for goWatch.
+async function _goWatchByScraperTitle(displayTitle, scraperTitle, targetYear, cover) {
+  // Run the alias map against the romaji title — this is where S4 gets resolved.
+  const { searchTitle, aliased } = resolveSearchTitle(scraperTitle);
+  try {
+    toast('Searching for ' + displayTitle + '…', 'warn', 4000);
+    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
+    const results = await res.json();
+
+    if (!Array.isArray(results) || !results.length) {
+      // Fallback: try the English display title (some titles are indexed in English)
+      const res2 = await fetch(API_BASE + '/search?q=' + encodeURIComponent(displayTitle)).then(r => r.json()).catch(() => []);
+      if (!Array.isArray(res2) || !res2.length) { toast('Not found on AnimePahe', 'err'); return; }
+      const best2 = _pickBest(res2, displayTitle, false, targetYear);
+      if (!best2) { toast('No close match for: ' + displayTitle, 'err'); return; }
+      window.location.href = 'player.html?session=' + encodeURIComponent(best2.session || best2.anime_session || '')
+        + '&title='  + encodeURIComponent(displayTitle)
+        + (cover ? '&poster=' + encodeURIComponent(cover) : (best2.poster ? '&poster=' + encodeURIComponent(best2.poster) : ''));
+      return;
+    }
+
+    const best = _pickBest(results, searchTitle, aliased, targetYear);
+    if (!best) { toast('No close match for: ' + displayTitle, 'err'); return; }
+    window.location.href = 'player.html?session=' + encodeURIComponent(best.session || best.anime_session || '')
+      + '&title='  + encodeURIComponent(displayTitle)   // player always shows EN title
+      + (cover ? '&poster=' + encodeURIComponent(cover) : (best.poster ? '&poster=' + encodeURIComponent(best.poster) : ''));
+  } catch (_) {
+    toast('Could not reach server', 'err');
+  }
 }
 
 // ── SKELETONS ─────────────────────────────────────────────────────────────────

@@ -522,7 +522,38 @@ async function checkHealth() {
 checkHealth();
 setInterval(checkHealth, 30000);
 
-// ── SEARCH ────────────────────────────────────────────────────────────────────
+// ── TITLE ALIAS MAP (mirrors index.html — keep in sync) ───────────────────────
+const TITLE_ALIAS_MAP = [
+  {
+    match: /re.?zero.{0,80}(season\s*4|4th\s*season|4th)/i,
+    alias: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
+  },
+];
+function resolveSearchTitle(title) {
+  for (const entry of TITLE_ALIAS_MAP) {
+    if (entry.match.test(title)) return { searchTitle: entry.alias, aliased: true };
+  }
+  return { searchTitle: title, aliased: false };
+}
+
+// Bigram similarity helpers (mirrors index.html)
+function _norm(s) { return (s||'').toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim(); }
+function _bigrams(s) { const set=new Set(); for(let i=0;i<s.length-1;i++) set.add(s.slice(i,i+2)); return set; }
+function _similarity(a,b) {
+  if(a===b) return 1; if(!a||!b) return 0;
+  const ba=_bigrams(a),bb=_bigrams(b); let x=0;
+  ba.forEach(bg=>{if(bb.has(bg))x++;}); return(2*x)/(ba.size+bb.size);
+}
+function _pickBest(results, searchTitle, aliased, targetYear) {
+  if(aliased) return results[0];
+  const normTarget=_norm(searchTitle);
+  function score(r){ let s=_similarity(normTarget,_norm(r.title||'')); if(targetYear&&r.year){if(r.year===targetYear)s+=0.3;else s-=0.15*Math.min(1,Math.abs(r.year-targetYear)/4);} return s; }
+  const sorted=results.slice().sort((a,b)=>score(b)-score(a));
+  const best=sorted[0]; const rawSim=_similarity(normTarget,_norm(best.title||''));
+  return rawSim>=0.72?best:null;
+}
+
+// ── SEARCH: AniList → EN display, romaji resolves scraper session on click ────
 const searchInput = document.getElementById('searchInput');
 const dropdown    = document.getElementById('dropdown');
 const spinner     = document.getElementById('searchSpinner');
@@ -533,18 +564,13 @@ searchInput.addEventListener('input', () => {
   if (!q) { closeDropdown(); return; }
   searchTimer = setTimeout(() => doSearch(q), 380);
 });
-
 searchInput.addEventListener('keydown', e => {
   if (!dropdown.classList.contains('open')) return;
   if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
   if (e.key === 'ArrowUp')   { e.preventDefault(); moveFocus(-1); }
-  if (e.key === 'Enter') {
-    const el = dropdownItems[focusIdx] || dropdownItems[0];
-    if (el) el.click();
-  }
+  if (e.key === 'Enter') { const el = dropdownItems[focusIdx]||dropdownItems[0]; if(el) el.click(); }
   if (e.key === 'Escape') closeDropdown();
 });
-
 document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) closeDropdown(); });
 
 function moveFocus(dir) {
@@ -555,38 +581,93 @@ function moveFocus(dir) {
   dropdownItems[focusIdx].scrollIntoView({ block: 'nearest' });
 }
 
+async function _anilistSearch(q) {
+  const query = `{Page(page:1,perPage:8){media(search:${JSON.stringify(q)},type:ANIME,sort:SEARCH_MATCH,isAdult:false){id title{english romaji}coverImage{large extraLarge}format seasonYear episodes status(version:2)}}}`;
+  try {
+    const res  = await fetch('https://graphql.anilist.co', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query}) });
+    const json = await res.json();
+    return (json.data&&json.data.Page&&json.data.Page.media)||[];
+  } catch(_){ return []; }
+}
+
 async function doSearch(q) {
   spinner.classList.add('active');
-  dropdown.innerHTML = '';
+  dropdown.innerHTML = '<div class="dropdown-empty">Searching…</div>';
   dropdown.classList.add('open');
-  focusIdx = -1;
-  dropdownItems = [];
+  focusIdx = -1; dropdownItems = [];
+
   try {
-    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
-    const data = await res.json();
-    if (!Array.isArray(data) || !data.length) {
+    const alResults = await _anilistSearch(q);
+    if (!alResults.length) {
       dropdown.innerHTML = '<div class="dropdown-empty">No results found</div>';
-    } else {
-      data.forEach((item, i) => {
-        const el = document.createElement('div');
-        el.className = 'dropdown-item' + (i === 0 ? ' focused' : '');
-        el.innerHTML = `
-          <img src="${esc(item.poster)}" onerror="this.style.visibility='hidden'" loading="lazy">
-          <div class="di-info">
-            <div class="di-title">${esc(item.title)}</div>
-            <div class="di-meta">${item.year} · ${esc(item.type)}</div>
-          </div>
-          <span class="di-badge">${esc(item.type)}</span>`;
-        el.addEventListener('click', () => selectAnime(item));
-        dropdown.appendChild(el);
-        dropdownItems.push(el);
-      });
-      focusIdx = 0;
+      spinner.classList.remove('active');
+      return;
     }
-  } catch (err) {
-    dropdown.innerHTML = '<div class="dropdown-empty">Search failed — is the server running?</div>';
+
+    dropdown.innerHTML = '';
+    const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+    alResults.forEach((m, i) => {
+      const displayTitle = (m.title&&(m.title.english||m.title.romaji))||'';
+      const scraperTitle = (m.title&&(m.title.romaji||m.title.english))||displayTitle;
+      const cover = (m.coverImage&&(m.coverImage.extraLarge||m.coverImage.large))||BLANK;
+      const fmtMap = {TV:'TV',TV_SHORT:'TV Short',MOVIE:'Movie',SPECIAL:'Special',OVA:'OVA',ONA:'ONA',MUSIC:'Music'};
+      const typeBadge = fmtMap[m.format]||m.format||'TV';
+      const year = m.seasonYear||null;
+      const metaParts = [typeBadge];
+      if (year) metaParts.push(String(year));
+      if (m.episodes) metaParts.push(m.episodes+' ep');
+
+      const el = document.createElement('div');
+      el.className = 'dropdown-item'+(i===0?' focused':'');
+      el.innerHTML =
+        '<img src="'+cover+'" onerror="this.src=\''+BLANK+'\'" loading="lazy" style="background:var(--bg4)">' +
+        '<div class="di-info">' +
+          '<div class="di-title">'+esc(displayTitle)+'</div>' +
+          '<div class="di-meta">'+esc(metaParts.join(' · '))+'</div>' +
+        '</div>' +
+        '<span class="di-badge">'+esc(typeBadge)+'</span>';
+
+      el.addEventListener('click', async () => {
+        closeDropdown();
+        searchInput.value = displayTitle;
+        await _selectByScraperTitle(displayTitle, scraperTitle, year, cover);
+      });
+
+      dropdown.appendChild(el);
+      dropdownItems.push(el);
+    });
+    focusIdx = 0;
+  } catch(_) {
+    dropdown.innerHTML = '<div class="dropdown-empty">Search failed</div>';
   }
   spinner.classList.remove('active');
+}
+
+// Resolve romaji title → scraper session → selectAnime (same logic as goWatch in index.html)
+async function _selectByScraperTitle(displayTitle, scraperTitle, targetYear, cover) {
+  const { searchTitle, aliased } = resolveSearchTitle(scraperTitle);
+  try {
+    toast('Searching for '+displayTitle+'…', 'warn', 4000);
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(searchTitle)}`);
+    const results = await res.json();
+
+    if (!Array.isArray(results)||!results.length) {
+      // Fallback: try English title
+      const res2 = await fetch(`${API}/search?q=${encodeURIComponent(displayTitle)}`).then(r=>r.json()).catch(()=>[]);
+      if (!Array.isArray(res2)||!res2.length) { toast('Not found on AnimePahe', 'err'); return; }
+      const best2 = _pickBest(res2, displayTitle, false, targetYear);
+      if (!best2) { toast('No close match for: '+displayTitle, 'err'); return; }
+      await selectAnime({ ...best2, title: displayTitle, poster: cover||best2.poster||'' });
+      return;
+    }
+
+    const best = _pickBest(results, searchTitle, aliased, targetYear);
+    if (!best) { toast('No close match for: '+displayTitle, 'err'); return; }
+    await selectAnime({ ...best, title: displayTitle, poster: cover||best.poster||'' });
+  } catch(_) {
+    toast('Could not reach server', 'err');
+  }
 }
 
 function closeDropdown() {

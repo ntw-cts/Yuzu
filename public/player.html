@@ -37,7 +37,7 @@
     border-bottom: 1px solid var(--border);
     background: rgba(10,10,15,0.85);
     backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-    z-index: 100; position: sticky; top: 0;
+    z-index: 1000; position: sticky; top: 0;
   }
   .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; white-space: nowrap; text-decoration: none; color: var(--text); }
   .logo span { color: var(--accent); }
@@ -116,6 +116,7 @@
     background: #000; border-radius: var(--radius-lg); overflow: hidden;
     border: 1px solid var(--border); position: relative;
     flex: 1; min-height: 0;
+    z-index: 1;
   }
   /* Make Plyr fill the container fully */
   .player-wrap .plyr,
@@ -206,9 +207,190 @@
   .toast.err  { border-color: rgba(232,68,68,0.4); color: #ff7c7c; }
   .toast.ok   { border-color: rgba(58,219,118,0.3); color: var(--green); }
   .toast.warn { border-color: rgba(240,180,41,0.3); color: var(--yellow); }
+  .player-controls {
+    display: flex; align-items: center; gap: 10px; margin-left: auto;
+    flex-wrap: wrap;
+  }
+  .server-toggle-container {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .control-label {
+    font-family: var(--mono); font-size: 10px; font-weight: 700; color: #fff;
+    letter-spacing: 0.05em; text-transform: uppercase; margin-right: -2px;
+  }
+
+
+
+  /* HIDE DEFAULT PLYR SEEKBAR RUNNABLE TRACK ONLY WHEN CHAPTERS ARE PRESENT */
+  .plyr-has-chapters .plyr__progress input[type="range"]::-webkit-slider-runnable-track {
+    background: transparent !important;
+  }
+  .plyr-has-chapters .plyr__progress input[type="range"]::-moz-range-track {
+    background: transparent !important;
+  }
+  .plyr-has-chapters .plyr__progress input[type="range"]::-ms-track {
+    background: transparent !important;
+  }
+  .plyr-has-chapters .plyr__progress__buffer {
+    display: none !important;
+  }
+
+  /* CHAPTERS SEEKBAR CONTAINER */
+  .plyr-chapters-container {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    height: 5px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    pointer-events: none; /* Let clicks pass through to Plyr input range */
+    z-index: 1;
+    transition: height 0.15s ease;
+  }
+  /* Expand height slightly on hover, just like stock Plyr */
+  .plyr__progress:hover .plyr-chapters-container {
+    height: 8px;
+  }
+
+  /* CHAPTER SEGMENT */
+  .plyr-chapter-segment {
+    height: 100%;
+    position: relative;
+    background: rgba(255, 255, 255, 0.16); /* Unplayed default track color */
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* BUFFER FILL */
+  .plyr-chapter-buffer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 0%;
+    background: rgba(255, 255, 255, 0.35); /* Buffered color */
+    z-index: 2;
+  }
+
+  /* PROGRESS FILL */
+  .plyr-chapter-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 0%;
+    z-index: 3;
+  }
+
+  /* Accent colors for fills */
+  .plyr-chapter-segment[data-type="intro"] .plyr-chapter-fill {
+    background: #ffd000; /* Distinct gold/amber for intro */
+  }
+  .plyr-chapter-segment[data-type="outro"] .plyr-chapter-fill {
+    background: #8b8bf5; /* Purple for outro */
+  }
+  .plyr-chapter-segment[data-type="main"] .plyr-chapter-fill {
+    background: var(--accent); /* Yellow-green/lime theme color */
+  }
+
+  /* SKIP BUTTON — floats over player, above Plyr controls */
+  .skip-btn {
+    position: absolute; bottom: 72px; right: 16px; z-index: 9999;
+    display: none; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: 8px;
+    border: 1.5px solid rgba(200,216,50,0.55);
+    background: rgba(18,18,22,0.88);
+    backdrop-filter: blur(8px);
+    color: var(--accent2); font-family: var(--mono); font-size: 12px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  .skip-btn.outro-skip { border-color: rgba(139,139,245,0.55); color: #b8b8ff; }
+  .skip-btn:hover { background: rgba(30,30,36,0.95); transform: scale(1.03); }
+  .skip-btn.show { display: flex; animation: skip-pop 0.2s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes skip-pop {
+    from { opacity: 0; transform: translateY(6px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+  .server-toggle {
+    display: flex; background: var(--bg4); border-radius: 6px; padding: 2px;
+    border: 1px solid var(--border2);
+  }
+  .server-toggle button {
+    background: transparent; border: none; color: var(--text2);
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    padding: 5px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
+  }
+  .server-toggle button.active {
+    background: var(--bg2); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .server-toggle button:disabled {
+    opacity: 0.3; cursor: not-allowed; text-decoration: line-through;
+  }
+  .plyr-hd-badge {
+    background: #000 !important;
+    color: #fff !important;
+    font-size: 8px !important;
+    font-weight: 800 !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+    margin-left: 6px !important;
+    vertical-align: middle !important;
+    display: inline-block !important;
+    line-height: 1 !important;
+    border: 1px solid rgba(255,255,255,0.25) !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  /* Plyr Tooltip Premium Styling (White Background / Dark Text) */
+  .plyr__progress .plyr__tooltip {
+    background: var(--plyr-tooltip-background, rgba(255, 255, 255, 0.95)) !important;
+    color: var(--plyr-tooltip-color, #111118) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+    white-space: nowrap !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+    padding: 5px 10px !important;
+    line-height: 1.2 !important;
+  }
+  
+  .plyr__progress .plyr__tooltip::before {
+    border-top-color: var(--plyr-tooltip-background, rgba(255, 255, 255, 0.95)) !important;
+  }
+
+  /* Plyr Tooltip Custom Chapter Styling with layout-resizing font transition */
+  .plyr__tooltip .plyr-tooltip-chapter {
+    display: inline-block !important;
+    white-space: nowrap !important;
+    color: inherit !important;
+    opacity: 0;
+    font-size: 0px;
+    font-weight: 500;
+    margin-left: 0px;
+    transition: font-size 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), 
+                opacity 0.22s ease, 
+                margin-left 0.22s ease;
+  }
+  .plyr__progress:hover .plyr__tooltip .plyr-tooltip-chapter {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.65;
+    margin-left: 6px;
+  }
+
   .audio-toggle {
     display: flex; background: var(--bg4); border-radius: 6px; padding: 2px;
-    border: 1px solid var(--border2); margin-left: auto;
+    border: 1px solid var(--border2);
   }
   .audio-toggle button {
     background: transparent; border: none; color: var(--text2);
@@ -250,7 +432,7 @@
 
     .mob-drawer-backdrop {
       display: block;
-      position: fixed; inset: 0; z-index: 90;
+      position: fixed; inset: 0; z-index: 998;
       background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
       opacity: 0; pointer-events: none; transition: opacity 0.22s;
     }
@@ -258,7 +440,7 @@
 
     .mob-drawer {
       display: flex; flex-direction: column; gap: 4px;
-      position: fixed; top: var(--topbar-h); left: 0; right: 0; z-index: 95;
+      position: fixed; top: var(--topbar-h); left: 0; right: 0; z-index: 999;
       background: var(--bg2); border-bottom: 1px solid var(--border2);
       padding: 10px 14px 16px;
       transform: translateY(-12px); opacity: 0; pointer-events: none;
@@ -298,6 +480,7 @@
     .player-wrap .plyr, .player-wrap .plyr--video, .player-wrap .plyr__video-wrapper { height: 100%; }
     .bottom-bar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 8px 10px; }
     .ep-info-bar { width: 100%; }
+    .player-controls { margin-left: 0; width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
     .audio-toggle { margin-left: 0; }
     .sidebar { border-left: none; border-top: 1px solid var(--border); height: 280px; min-height: calc(100svh - var(--topbar-h) - 56.25vw - 110px); flex-shrink: 0; width: 100%; }
     .sidebar-head { padding: 10px 14px; }
@@ -308,7 +491,22 @@
     .ep-num { font-size: 14px; }
     .dropdown { max-height: 260px; }
     .toast-wrap { bottom: 10px; right: 10px; left: 10px; }
-    .toast { max-width: none; }
+  }
+
+  /* iPhone-only Portrait control layout overrides to strip unnecessary controls on mobile screens */
+  @media (max-width: 480px) and (orientation: portrait) {
+    .is-iphone .plyr__volume,
+    .is-iphone .plyr__control[data-plyr="mute"],
+    .is-iphone .plyr__control[data-plyr="pip"],
+    .is-iphone .plyr__control[data-plyr="airplay"] {
+      display: none !important;
+    }
+  /* Fullscreen cursor hiding */
+  html.hide-cursor,
+  html.hide-cursor *,
+  :fullscreen.hide-cursor,
+  :fullscreen.hide-cursor * {
+    cursor: none !important;
   }
 </style>
 </head>
@@ -387,17 +585,35 @@
           <div class="big-spinner"></div>
           <p id="loadingMsg">Resolving stream…</p>
         </div>
+        <!-- Floating skip button (shown during intro/outro) -->
+        <button class="skip-btn" id="skipBtn" onclick="skipChapter()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="4" x2="19" y2="20"/></svg>
+          <span id="skipBtnLabel">Skip Intro</span>
+        </button>
       </div>
 
-      <!-- Bottom bar: anime info only -->
+      <!-- Bottom bar: anime info + chapter pills + controls -->
       <div class="bottom-bar">
         <div class="ep-info-bar" id="epInfoBar">
           <span class="eib-empty">No episode selected</span>
         </div>
+
+
         
-        <div class="audio-toggle" id="audioToggle" style="display: none;">
-          <button id="btnSub" class="active" onclick="setAudioLang('jpn')">SUB</button>
-          <button id="btnDub" onclick="setAudioLang('eng')">DUB</button>
+        <div class="player-controls">
+          <div class="server-toggle-container">
+            <span class="control-label" id="serverToggleLabel" style="display: none;">SERVER:</span>
+            <div class="server-toggle" id="serverToggleWrap" style="display: none;">
+              <button id="btnServerPahe" onclick="changeServer('pahe')">ANIMEPAHE</button>
+              <button id="btnServerMiko" onclick="changeServer('miko')">MIKOANIME</button>
+              <button id="btnServerMegaplay" onclick="changeServer('megaplay')">ANIKOTO</button>
+            </div>
+          </div>
+
+          <div class="audio-toggle" id="audioToggle" style="display: none;">
+            <button id="btnSub" class="active" onclick="setAudioLang('jpn')">SUB</button>
+            <button id="btnDub" onclick="setAudioLang('eng')">DUB</button>
+          </div>
         </div>
       </div>
     </section>
@@ -417,7 +633,11 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-const API = 'https://animepaheapi-1.onrender.com';
+const isIphoneOnly = /iPhone|iPod/.test(navigator.userAgent);
+if (isIphoneOnly) {
+  document.documentElement.classList.add('is-iphone');
+}
+const API = 'https://anikage-scraper-api.ntw-cts.workers.dev';
 
 // Changed to an array format to match index.html and support regex rules
 const TITLE_ALIAS_MAP = [
@@ -427,9 +647,10 @@ const TITLE_ALIAS_MAP = [
   { match: /^aot$/i,    alias: 'shingeki no kyojin' },
   { match: /^hxs$/i,    alias: 'hunter x hunter' }
 ];
-
 let hls = null;
 let plyr = null;
+let plyrObserver = null;
+let plyrControlsHideTimeout = null;
 let selectedAnime = null;
 let currentEp = null;
 let sources = [];
@@ -437,43 +658,87 @@ let searchTimer = null;
 let focusIdx = -1;
 let dropdownItems = [];
 let currentAudioLang = 'jpn';
+let currentProvider = null;
+let currentFetchToken = 0;
+let _switchingSource = false;
+let _wasFullscreen = false;
+let _playEpTimer = null;
+let _changeServerTimer = null;
+let _setAudioLangTimer = null;
+let _changeQualityTimer = null;
 
 // Global state tracking user's actual quality string preference
 let preferredQuality = localStorage.getItem('yuzu_preferred_quality') || '1080p';
 
-// ── PROXY URL RESOLVER ────────────────────────────────────────────────────────
-function resolveProxyUrl(proxyUrl) {
-  if (!proxyUrl) return '';
-  if (proxyUrl.startsWith('http')) return proxyUrl;
-  try {
-    const origin = new URL(API).origin;
-    return origin + proxyUrl;
-  } catch (_) {
-    return API + proxyUrl;
+// Expose local variables to window so external scripts like stress-test.js can read/write them
+Object.defineProperty(window, 'currentEp', { get: () => currentEp, set: (val) => { currentEp = val; } });
+Object.defineProperty(window, 'currentAudioLang', { get: () => currentAudioLang, set: (val) => { currentAudioLang = val; } });
+Object.defineProperty(window, 'currentProvider', { get: () => currentProvider, set: (val) => { currentProvider = val; } });
+Object.defineProperty(window, 'selectedAnime', { get: () => selectedAnime, set: (val) => { selectedAnime = val; } });
+Object.defineProperty(window, 'sources', { get: () => sources, set: (val) => { sources = val; } });
+Object.defineProperty(window, '_qualitySources', { get: () => _qualitySources, set: (val) => { _qualitySources = val; } });
+Object.defineProperty(window, '_activeQualityIdx', { get: () => _activeQualityIdx, set: (val) => { _activeQualityIdx = val; } });
+Object.defineProperty(window, 'plyr', { get: () => plyr });
+
+function resetMediaPipeline() {
+  if (hls) {
+    try { hls.detachMedia(); } catch(_) {}
+    try { hls.destroy(); } catch(_) {}
+    hls = null;
+  }
+  const video = document.getElementById('videoEl');
+  if (video) {
+    try {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    } catch(_) {}
+    video.style.display = '';
+  }
+  const plyrEl = document.querySelector('#playerWrap .plyr');
+  if (plyrEl) {
+    plyrEl.style.display = '';
+  }
+  const iframe = document.getElementById('megaplayIframe');
+  if (iframe) {
+    try { iframe.remove(); } catch(_) {}
   }
 }
 
+
 // ── QUALITY STATE ────────────────────────────────────────────────────────────
-let _qualitySources = [];   
-let _activeQualityIdx = -1; 
+let _qualitySources = [];   // ordered list of deduped sources
+let _activeQualityIdx = -1; // index into _qualitySources
 
 function srcKey(src) { return src.quality + '|' + (src.fansub || ''); }
 function qVal(q) { return parseInt(q) || 0; }
 
+
 // ── PLYR INIT ─────────────────────────────────────────────────────────────────
 function _buildPlyr(qualityOptions, defaultQuality) {
+  if (plyrObserver) { try { plyrObserver.disconnect(); } catch(_) {} plyrObserver = null; }
+  if (plyrControlsHideTimeout) { clearTimeout(plyrControlsHideTimeout); plyrControlsHideTimeout = null; }
   if (plyr) { try { plyr.destroy(); } catch(_) {} plyr = null; }
 
   const qualityLabels = {};
   qualityOptions.forEach((idx, i) => {
     const src = _qualitySources[i];
-    qualityLabels[idx] = src.quality + (src.fansub ? ' · ' + src.fansub : '');
+    let label = src.quality;
+    if (label === '1080p' || label === '720p') {
+      label += ' HD';
+    }
+    if (src.fansub) {
+      label += ' · ' + src.fansub;
+    }
+    qualityLabels[idx] = label;
   });
 
   plyr = new Plyr('#videoEl', {
     storage: { enabled: false }, // Turn off native index caching to prevent mismatched setups
     controls: ['play-large','play','rewind','fast-forward','current-time','progress','duration','mute','volume','captions','settings','pip','airplay','fullscreen'],
     settings: ['quality','speed'],
+    seekTime: 10,
+    fullscreen: { enabled: true, fallback: true, iosNative: true, container: '#playerWrap' },
     quality: {
       default: defaultQuality,
       options: qualityOptions,
@@ -485,6 +750,7 @@ function _buildPlyr(qualityOptions, defaultQuality) {
           // Store actual resolution string so it transitions cleanly across various titles
           preferredQuality = src.quality;
           localStorage.setItem('yuzu_preferred_quality', preferredQuality);
+          localStorage.setItem('preferredQuality', src.quality);
           _swapSource(src);
         }
       },
@@ -494,32 +760,150 @@ function _buildPlyr(qualityOptions, defaultQuality) {
     tooltips: { controls: true, seek: true },
     i18n: { qualityLabel: qualityLabels },
   });
+
+  plyrObserver = new MutationObserver(() => {
+    const container = plyr.elements.container;
+    if (!container) return;
+    const elements = container.querySelectorAll('.plyr__menu__container button, .plyr__menu__container span, .plyr__controls span');
+    elements.forEach(el => {
+      if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
+        const txt = el.textContent;
+        if (txt.includes(' HD')) {
+          el.innerHTML = txt.replace(' HD', ' <span class="plyr-hd-badge">HD</span>');
+        }
+      }
+    });
+  });
+
+  plyr.on('ready', () => {
+    const container = plyr.elements.container;
+    if (container) {
+      plyrObserver.observe(container, { childList: true, subtree: true });
+      
+      plyr.on('controlshidden', () => {
+        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement || (plyr && plyr.fullscreen && plyr.fullscreen.active));
+        if (isFS) {
+          clearTimeout(plyrControlsHideTimeout);
+          plyrControlsHideTimeout = setTimeout(hideMouseCursor, 1000);
+        }
+      });
+      
+      plyr.on('controlsshown', () => {
+        clearTimeout(plyrControlsHideTimeout);
+        showMouseCursor();
+      });
+      const elements = container.querySelectorAll('.plyr__menu__container button, .plyr__menu__container span, .plyr__controls span');
+      elements.forEach(el => {
+        if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
+          const txt = el.textContent;
+          if (txt.includes(' HD')) {
+            el.innerHTML = txt.replace(' HD', ' <span class="plyr-hd-badge">HD</span>');
+          }
+        }
+      });
+
+      setupTooltipObserver();
+      rebuildProgressChapters();
+
+      const media = plyr.media;
+      if (media) {
+        media.removeEventListener('timeupdate', updateProgressChaptersFill);
+        media.addEventListener('timeupdate', updateProgressChaptersFill);
+        media.removeEventListener('progress', updateProgressChaptersBuffer);
+        media.addEventListener('progress', updateProgressChaptersBuffer);
+      }
+
+      const isCurrentlyFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      if (_wasFullscreen || isCurrentlyFullscreen) {
+        const triggerFS = () => {
+          try {
+            document.dispatchEvent(new Event('fullscreenchange'));
+            document.dispatchEvent(new Event('webkitfullscreenchange'));
+            document.dispatchEvent(new Event('mozfullscreenchange'));
+            document.dispatchEvent(new Event('MSFullscreenChange'));
+          } catch(_) {}
+        };
+        setTimeout(() => {
+          try {
+            plyr.fullscreen.enter();
+          } catch(_) {}
+          _wasFullscreen = false;
+          triggerFS();
+        }, 50);
+        setTimeout(triggerFS, 250);
+        setTimeout(triggerFS, 600);
+      }
+    }
+  });
+
+  plyr.on('ended', () => {
+    console.log('Episode ended, checking for next episode...');
+    const eps = window._loadedEpisodes || [];
+    if (eps.length && currentEp) {
+      const sorted = [...eps].sort((a, b) => a.number - b.number);
+      const idx = sorted.findIndex(e => e.number === currentEp.number);
+      if (idx !== -1 && idx + 1 < sorted.length) {
+        toast(`Playing next episode (Episode ${sorted[idx + 1].number})...`, 'ok');
+        setTimeout(() => {
+          playEpisode(sorted[idx + 1]);
+        }, 100);
+      } else {
+        toast('Finished the last episode!', 'ok');
+      }
+    }
+  });
+
+
 }
 
 function _swapSource(src) {
-  showLoading(`Switching to ${src.quality}${src.fansub ? ' · ' + src.fansub : ''}…`);
-  fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`)
-    .then(r => r.json())
-    .then(data => { 
-      const proxyUrl = resolveProxyUrl(data.proxy_url);
-      _playUrl(proxyUrl); 
-    })
-    .catch(() => { hideLoading(); toast(`Failed to switch quality`, 'err'); });
+  _switchingSource = true;
+  _forceAutoPlay = true;
+  const token = ++currentFetchToken;
+  showLoading(`Switching to ${src.quality}…`);
+  clearTimeout(_changeQualityTimer);
+  _changeQualityTimer = setTimeout(async () => {
+    if (token !== currentFetchToken) return;
+    
+    const isUUID = selectedAnime && selectedAnime.session && selectedAnime.session.includes('-') && selectedAnime.session.length === 36;
+    if (isUUID) {
+      try {
+        const res = await fetch(`/m3u8?url=${encodeURIComponent(src.url)}`);
+        if (token !== currentFetchToken) return;
+        const data = await res.json();
+        const proxyUrl = resolveProxyUrl(data.proxy_url);
+        _playUrl(proxyUrl, token);
+      } catch (err) {
+        if (token !== currentFetchToken) return;
+        console.error(err);
+        hideLoading();
+        toast('Failed to switch quality', 'err');
+      }
+    } else {
+      const proxyUrl = window.location.origin + '/proxy?url=' + encodeURIComponent(src.streamUrl);
+      _playUrl(proxyUrl, token);
+    }
+  }, 300);
 }
 
 // ── HEALTH CHECK ──────────────────────────────────────────────────────────────
 async function checkHealth() {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
   try {
-    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(4000) });
+    const r = await fetch(`${API}/`, { signal: controller.signal });
+    clearTimeout(timeoutId);
     const data = await r.json();
-    if (r.ok && data.status === 'ok') {
+    if (r.ok && data.name && data.name.includes('Anikage')) {
       dot.className = 'status-dot green';
       txt.textContent = 'API online';
       return true;
     }
-  } catch (_) {}
+  } catch (_) {
+    clearTimeout(timeoutId);
+  }
   dot.className = 'status-dot red';
   txt.textContent = 'API offline';
   return false;
@@ -575,29 +959,104 @@ async function doSearch(q) {
   dropdownItems = [];
   
   try {
-    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
-    const data = await res.json();
-    if (!Array.isArray(data) || !data.length) {
+    // Run 3 fetches in parallel:
+    //  1. Worker/AniList search (strict but has metadata)
+    //  2. Local AnimePahe search (raw query)
+    //  3. Local AnimePahe search with " season" appended — catches franchise
+    //     sequels that fall outside the top-8 of the base query (e.g. Re:Zero S4)
+    const qNorm = q.trim().toLowerCase();
+    const seasonVariant = /\bseason\b|\bpart\b|\bs\d/i.test(q) ? null : q.trim() + ' season';
+    const fetches = [
+      fetch(`${API}/api/search?q=${encodeURIComponent(q)}`).then(r => r.json().catch(() => ({ success: false }))),
+      fetch(`/search?q=${encodeURIComponent(q)}`).then(r => r.json().catch(() => [])),
+    ];
+    if (seasonVariant) fetches.push(fetch(`/search?q=${encodeURIComponent(seasonVariant)}`).then(r => r.json().catch(() => [])));
+
+    const [workerRes, localRes, localSeasonRes] = await Promise.all(fetches);
+
+    const results = (workerRes.success && workerRes.data && workerRes.data.results) || [];
+    const localItems = [
+      ...(Array.isArray(localRes) ? localRes : []),
+      ...(Array.isArray(localSeasonRes) ? localSeasonRes : [])
+    ];
+
+
+
+    // Deduplicate and merge by normalized title (worker results take priority)
+    const seenTitles = new Set(results.map(r => {
+      const title = r.title ? (r.title.english || r.title.romaji || '') : '';
+      return title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    }));
+
+    localItems.forEach(item => {
+      const normTitle = String(item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normTitle && !seenTitles.has(normTitle)) {
+        seenTitles.add(normTitle);
+        results.push({
+          slug: item.session || '',
+          anilistId: null,
+          title: { romaji: item.title || '', english: item.title || '' },
+          coverImage: {
+            medium: item.poster || '',
+            large: item.poster || '',
+            extraLarge: item.poster || ''
+          },
+          type: 'ANIME',
+          format: item.type || 'TV',
+          year: item.year || null,
+        });
+      }
+    });
+
+    // Sort merged results: worker API results first, then by year descending
+    results.sort((a, b) => {
+      const aIsWorker = !!a.anilistId;
+      const bIsWorker = !!b.anilistId;
+      if (aIsWorker !== bIsWorker) return aIsWorker ? -1 : 1;
+      return (b.year || 0) - (a.year || 0);
+    });
+
+    if (!results.length) {
       dropdown.innerHTML = '<div class="dropdown-empty">No results found</div>';
     } else {
-      data.forEach((item, i) => {
+      results.forEach((item, i) => {
         const el = document.createElement('div');
         el.className = 'dropdown-item' + (i === 0 ? ' focused' : '');
+        const titleText = item.title ? (item.title.english || item.title.romaji) : 'Unknown';
+        const poster = item.coverImage ? (item.coverImage.large || item.coverImage.medium || '') : '';
+        const format = item.format || 'TV';
         el.innerHTML = `
-          <img src="${esc(item.poster)}" onerror="this.style.visibility='hidden'" loading="lazy">
+          <img src="${esc(poster)}" onerror="this.style.visibility='hidden'" loading="lazy">
           <div class="di-info">
-            <div class="di-title">${esc(item.title)}</div>
-            <div class="di-meta">${item.year} · ${esc(item.type)}</div>
+            <div class="di-title">${esc(titleText)}</div>
+            <div class="di-meta">${esc(item.year || '')} · ${esc(format)}</div>
           </div>
-          <span class="di-badge">${esc(item.type)}</span>`;
-        el.addEventListener('click', () => selectAnime(item));
+          <span class="di-badge">${esc(format)}</span>`;
+        
+        const mappedAnime = {
+          session: item.slug,
+          title: titleText,
+          poster: poster,
+          snapshot: '',
+          anilistId: item.anilistId || null
+        };
+        el.addEventListener('click', () => {
+          closeDropdown();
+          searchInput.value = titleText;
+          // Push new state to history to enable browser back button
+          const newUrl = '/watch?session=' + encodeURIComponent(item.slug || '')
+            + '&title=' + encodeURIComponent(titleText)
+            + (poster ? '&poster=' + encodeURIComponent(poster) : '');
+          window.history.pushState({ session: item.slug, title: titleText, poster }, '', newUrl);
+          selectAnime(mappedAnime);
+        });
         dropdown.appendChild(el);
         dropdownItems.push(el);
       });
       focusIdx = 0;
     }
   } catch (err) {
-    dropdown.innerHTML = '<div class="dropdown-empty">Search failed — is the server running?</div>';
+    dropdown.innerHTML = '<div class="dropdown-empty">Search failed</div>';
   }
   spinner.classList.remove('active');
 }
@@ -617,12 +1076,82 @@ async function selectAnime(anime) {
   clearVideo();
   document.getElementById('epList').innerHTML = '<div class="ep-empty">Loading episodes…</div>';
   document.getElementById('epCount').textContent = '';
+  const isUUID = anime.session && anime.session.includes('-') && anime.session.length === 36;
   try {
-    const res = await fetch(`${API}/episodes?session=${anime.session}`);
-    const eps = await res.json();
-    window._loadedEpisodes = Array.isArray(eps) ? eps : (eps.data || []);
+    let eps = [];
+    if (isUUID) {
+      const epsPromise = fetch(`/episodes?session=${anime.session}`).then(r => r.json());
+      const idsPromise = selectedAnime.anilistId ? Promise.resolve(null) : fetch(`/ids?session=${anime.session}`).then(r => r.json()).catch(() => null);
+      const [localEps, idsRes] = await Promise.all([epsPromise, idsPromise]);
+      eps = Array.isArray(localEps) ? localEps : (localEps.data || []);
+      if (idsRes && idsRes.anilist) {
+        selectedAnime.anilistId = idsRes.anilist;
+      }
+    } else {
+      const [epRes, infoRes, latestRes] = await Promise.all([
+        fetch(`${API}/api/episodes?slug=${anime.session}`).then(r => r.json().catch(() => ({ success: false }))),
+        fetch(`${API}/api/info?slug=${anime.session}`).then(r => r.json().catch(() => ({ success: false }))),
+        fetch('/latest?page=1').then(r => r.json().catch(() => []))
+      ]);
+
+      eps = (epRes.success && epRes.data) || [];
+
+      // Check if there are newer episodes that have aired but are missing from /api/episodes
+      let maxEpNum = eps.reduce((max, e) => Math.max(max, Number(e.number || 0)), 0);
+      let targetMax = maxEpNum;
+      let latestSnapshot = '';
+
+      // 1. Match against recent scraper updates to get the latest episode number and screenshot
+      try {
+        const targetNorm = String(anime.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (targetNorm && Array.isArray(latestRes)) {
+          const latestMatch = latestRes.find(item => {
+            const t = String(item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            return t === targetNorm || t.includes(targetNorm) || targetNorm.includes(t);
+          });
+          if (latestMatch && Number(latestMatch.episode) > targetMax) {
+            targetMax = Number(latestMatch.episode);
+            latestSnapshot = latestMatch.snapshot || '';
+          }
+        }
+      } catch (_) {}
+
+      // 2. Cross-reference with the worker API's AniList info block for current and next airing episode
+      if (infoRes && infoRes.success && infoRes.data) {
+        const info = infoRes.data;
+        if (info.anilistId) {
+          selectedAnime.anilistId = info.anilistId;
+        }
+        if (info.currentEpisode && Number(info.currentEpisode) > targetMax) {
+          targetMax = Number(info.currentEpisode);
+        }
+        if (info.nextAiringEpisode && info.nextAiringEpisode.episode) {
+          const nextEpNum = Number(info.nextAiringEpisode.episode);
+          const airTimestamp = info.nextAiringEpisode.airingAt * 1000;
+          if (airTimestamp <= Date.now() && nextEpNum > targetMax) {
+            targetMax = nextEpNum;
+          }
+        }
+      }
+
+      // 3. Inject any missing episodes up to the targetMax
+      if (targetMax > maxEpNum) {
+        for (let num = maxEpNum + 1; num <= targetMax; num++) {
+          if (!eps.some(e => Number(e.number) === num)) {
+            eps.push({
+              number: num,
+              title: 'Episode ' + num,
+              img: num === targetMax ? latestSnapshot : ''
+            });
+          }
+        }
+      }
+    }
+
+    window._loadedEpisodes = eps;
     renderEpisodes(eps);
-  } catch {
+  } catch (err) {
+    console.error(err);
     document.getElementById('epList').innerHTML = '<div class="ep-empty">Failed to load episodes</div>';
     toast('Could not fetch episodes', 'err');
   }
@@ -636,9 +1165,9 @@ function renderEpisodes(eps) {
   eps.forEach(ep => {
     const card = document.createElement('div');
     card.className = 'ep-card';
-    card.dataset.session = ep.session;
+    card.dataset.number = ep.number;
     card.innerHTML = `
-      <img class="ep-thumb" src="${esc(ep.snapshot)}" onerror="this.style.visibility='hidden'" loading="lazy">
+      <img class="ep-thumb" src="${esc(ep.img)}" onerror="this.style.visibility='hidden'" loading="lazy">
       <div class="ep-card-info">
         <div class="ep-num">Episode ${ep.number}</div>
         <div class="ep-title-small">${esc(ep.title || '')}</div>
@@ -657,10 +1186,26 @@ async function setAudioLang(lang) {
   document.getElementById('btnSub').classList.toggle('active', currentAudioLang === 'jpn');
   document.getElementById('btnDub').classList.toggle('active', currentAudioLang === 'eng');
 
-  if (sources.length) {
-    const chosen = getInitialSource(sources, lang, preferredQuality);
-    renderQuality(sources, chosen);
-    if (chosen) await loadSource(chosen);
+  if (currentProvider === 'megaplay') {
+    const token = ++currentFetchToken;
+    clearTimeout(_setAudioLangTimer);
+    _setAudioLangTimer = setTimeout(async () => {
+      if (token !== currentFetchToken) return;
+
+      resetMediaPipeline();
+      showLoading('Fetching sources…');
+      clearQuality();
+
+      if (currentEp) {
+        await playEpisode(currentEp);
+      }
+    }, 300);
+  } else {
+    if (sources.length) {
+      const chosen = getInitialSource(sources, lang, preferredQuality);
+      renderQuality(sources, chosen);
+      if (chosen) await loadSource(chosen);
+    }
   }
 }
 
@@ -674,20 +1219,26 @@ function getInitialSource(srcs, lang, prefQuality) {
   
   return langSrcs.sort((a,b) => qVal(b.quality) - qVal(a.quality))[0];
 }
-
 // ── PLAY EPISODE ──────────────────────────────────────────────────────────────
 async function playEpisode(ep) {
+  _switchingSource = true;
+  _forceAutoPlay = true;
+  const token = ++currentFetchToken;
   currentEp = ep;
   document.querySelectorAll('.ep-card').forEach(c => c.classList.remove('active'));
-  const card = document.querySelector(`.ep-card[data-session="${ep.session}"]`);
+  const card = document.querySelector(`.ep-card[data-number="${ep.number}"]`);
   if (card) { card.classList.add('active'); card.scrollIntoView({ block: 'nearest' }); }
 
   updateEpInfoBar(ep);
   showLoading('Fetching sources…');
+
+  resetMediaPipeline();
+
+  const isFirstLoad = !plyr;
   clearQuality();
 
   const video = document.getElementById('videoEl');
-  if (navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+  if (video && (navigator.standalone || window.matchMedia('(display-mode: standalone)').matches)) {
     if (!video._pwaUnlocked) {
       video.muted = true;
       const silentPromise = video.play();
@@ -696,62 +1247,502 @@ async function playEpisode(ep) {
     }
   }
 
-  try {
-    const res = await fetch(`${API}/sources?anime_session=${selectedAnime.session}&episode_session=${ep.session}`);
-    sources = await res.json();
-    if (!sources.length) throw new Error('no sources');
-
-    const hasDub = sources.some(s => s.audio === 'eng');
-    document.getElementById('audioToggle').style.display = 'flex';
-    const btnDub = document.getElementById('btnDub');
-    
-    if (!hasDub) {
-      btnDub.disabled = true;
-      btnDub.title = "No English Dub available";
-      if (currentAudioLang === 'eng') {
-        currentAudioLang = 'jpn';
-        document.getElementById('btnSub').classList.add('active');
-        btnDub.classList.remove('active');
+  const runFetch = async () => {
+    if (token !== currentFetchToken) return;
+    const isUUID = selectedAnime && selectedAnime.session && selectedAnime.session.includes('-') && selectedAnime.session.length === 36;
+    try {
+      if (currentProvider === 'megaplay') {
+        await fetchAndPlayStream(token);
+        // Show/setup server buttons
+        const btnPahe = document.getElementById('btnServerPahe');
+        const btnMiko = document.getElementById('btnServerMiko');
+        const btnMegaplay = document.getElementById('btnServerMegaplay');
+        if (isUUID) {
+          if (btnPahe) { btnPahe.disabled = false; btnPahe.style.display = ''; }
+          if (btnMiko) { btnMiko.style.display = 'none'; }
+        } else {
+          if (btnPahe) { btnPahe.style.display = ''; }
+          if (btnMiko) { btnMiko.style.display = ''; }
+        }
+        if (btnMegaplay) { btnMegaplay.disabled = false; btnMegaplay.style.display = ''; }
+        document.getElementById('serverToggleLabel').style.display = 'inline';
+        document.getElementById('serverToggleWrap').style.display = 'flex';
+        updateServerButtons();
+        return;
       }
-    } else {
-      btnDub.disabled = false;
-      btnDub.title = "";
+
+      if (isUUID) {
+        const res = await fetch(`/sources?anime_session=${selectedAnime.session}&episode_session=${ep.session}`);
+        if (token !== currentFetchToken) return;
+        sources = await res.json();
+        if (!sources.length) throw new Error('No sources available');
+
+        // Setup server buttons
+        const btnPahe = document.getElementById('btnServerPahe');
+        const btnMiko = document.getElementById('btnServerMiko');
+        const btnMegaplay = document.getElementById('btnServerMegaplay');
+
+        if (btnPahe) {
+          btnPahe.disabled = false;
+          btnPahe.title = "";
+          btnPahe.style.display = '';
+        }
+        if (btnMiko) {
+          btnMiko.style.display = 'none';
+        }
+        
+        let hasMegaplay = false;
+        if (selectedAnime.anilistId) {
+          hasMegaplay = true;
+        } else {
+          try {
+            const idRes = await fetch(`/ids?session=${selectedAnime.session}`).then(r => r.json());
+            if (idRes && idRes.anilist) {
+              selectedAnime.anilistId = idRes.anilist;
+              hasMegaplay = true;
+            }
+          } catch (_) {}
+        }
+
+        if (btnMegaplay) {
+          btnMegaplay.style.display = hasMegaplay ? '' : 'none';
+          btnMegaplay.disabled = !hasMegaplay;
+        }
+
+        const showSelector = hasMegaplay;
+        document.getElementById('serverToggleLabel').style.display = showSelector ? 'inline' : 'none';
+        document.getElementById('serverToggleWrap').style.display = showSelector ? 'flex' : 'none';
+        updateServerButtons();
+
+        const hasDub = sources.some(s => s.audio === 'eng');
+        document.getElementById('audioToggle').style.display = 'flex';
+        const btnDub = document.getElementById('btnDub');
+        if (btnDub) {
+          if (!hasDub) {
+            btnDub.disabled = true;
+            btnDub.title = "No English Dub available";
+            if (currentAudioLang === 'eng') {
+              currentAudioLang = 'jpn';
+              document.getElementById('btnSub').classList.add('active');
+              btnDub.classList.remove('active');
+            }
+          } else {
+            btnDub.disabled = false;
+            btnDub.title = "";
+          }
+        }
+
+        const activeSrc = renderQuality(sources);
+        if (activeSrc) {
+          if (token !== currentFetchToken) return;
+          await loadSource(activeSrc, token);
+        } else {
+          throw new Error('No compatible quality source found');
+        }
+      } else {
+        const serversRes = await fetch(`${API}/api/servers?slug=${selectedAnime.session}&episode=${ep.number}`);
+        if (token !== currentFetchToken) return;
+        const serversJson = await serversRes.json();
+        const servers = (serversJson.success && serversJson.data) || [];
+        
+        let hasMegaplay = false;
+        if (selectedAnime.anilistId) {
+          hasMegaplay = true;
+        } else {
+          try {
+            const infoRes = await fetch(`${API}/api/info?slug=${selectedAnime.session}`).then(r => r.json());
+            if (infoRes && infoRes.success && infoRes.data && infoRes.data.anilistId) {
+              selectedAnime.anilistId = infoRes.data.anilistId;
+              hasMegaplay = true;
+            }
+          } catch (_) {}
+        }
+
+        if (!servers.length && !hasMegaplay) throw new Error('No servers available');
+
+        const hasPahe = servers.some(s => s.id === 'pahe');
+        const hasMiko = servers.some(s => s.id === 'miko');
+
+        const btnPahe = document.getElementById('btnServerPahe');
+        const btnMiko = document.getElementById('btnServerMiko');
+        const btnMegaplay = document.getElementById('btnServerMegaplay');
+
+        if (btnPahe) {
+          btnPahe.disabled = !hasPahe;
+          btnPahe.title = hasPahe ? "" : "Not available on AnimePahe";
+          btnPahe.style.display = '';
+        }
+        if (btnMiko) {
+          btnMiko.disabled = !hasMiko;
+          btnMiko.title = hasMiko ? "" : "Not available on MikoAnime";
+          btnMiko.style.display = '';
+        }
+        if (btnMegaplay) {
+          btnMegaplay.style.display = hasMegaplay ? '' : 'none';
+          btnMegaplay.disabled = !hasMegaplay;
+        }
+
+        if (!currentProvider || (currentProvider !== 'megaplay' && !servers.some(s => s.id === currentProvider))) {
+          currentProvider = hasPahe ? 'pahe' : (hasMiko ? 'miko' : 'megaplay');
+        }
+        updateServerButtons();
+        document.getElementById('serverToggleLabel').style.display = 'inline';
+        document.getElementById('serverToggleWrap').style.display = 'flex';
+
+        await fetchAndPlayStream(token);
+      }
+    } catch (err) {
+      if (token !== currentFetchToken) return;
+      console.error(err);
+      hideLoading();
+      toast('Failed to get sources for this episode', 'err');
+
+      // Fallback to the latest available episode if the requested one failed
+      const eps = window._loadedEpisodes || [];
+      if (eps.length) {
+        const realEps = eps.filter(e => e.id || e.session);
+        if (realEps.length && ep.number !== realEps[realEps.length - 1].number) {
+          toast('Falling back to the latest available episode...', 'warn');
+          playEpisode(realEps[realEps.length - 1]);
+        }
+      }
+    }
+  };
+
+  clearTimeout(_playEpTimer);
+  if (isFirstLoad) {
+    await runFetch();
+  } else {
+    _playEpTimer = setTimeout(runFetch, 300);
+  }
+}
+
+function updateServerButtons() {
+  const btnPahe = document.getElementById('btnServerPahe');
+  const btnMiko = document.getElementById('btnServerMiko');
+  const btnMegaplay = document.getElementById('btnServerMegaplay');
+  if (btnPahe) btnPahe.classList.toggle('active', currentProvider === 'pahe');
+  if (btnMiko) btnMiko.classList.toggle('active', currentProvider === 'miko');
+  if (btnMegaplay) btnMegaplay.classList.toggle('active', currentProvider === 'megaplay');
+}
+
+async function changeServer(id) {
+  const btn = id === 'pahe' ? document.getElementById('btnServerPahe') :
+              id === 'miko' ? document.getElementById('btnServerMiko') :
+              document.getElementById('btnServerMegaplay');
+  if (btn && btn.disabled) return;
+  if (currentProvider === id) return;
+  currentProvider = id;
+  updateServerButtons();
+
+  const token = ++currentFetchToken;
+  clearTimeout(_changeServerTimer);
+  _changeServerTimer = setTimeout(async () => {
+    if (token !== currentFetchToken) return;
+
+    resetMediaPipeline();
+    showLoading('Fetching sources…');
+    clearQuality();
+
+    if (currentEp) {
+      await fetchAndPlayStream(token);
+    }
+  }, 300);
+}
+
+async function ensureAnilistId(token) {
+  if (selectedAnime && selectedAnime.anilistId) return selectedAnime.anilistId;
+  if (!selectedAnime) return null;
+  const isUUID = selectedAnime.session && selectedAnime.session.includes('-') && selectedAnime.session.length === 36;
+  if (isUUID) {
+    const idRes = await fetch(`/ids?session=${selectedAnime.session}`).then(r => r.json());
+    if (token !== currentFetchToken) return null;
+    if (idRes && idRes.anilist) {
+      selectedAnime.anilistId = idRes.anilist;
+    }
+  } else {
+    const infoRes = await fetch(`${API}/api/info?slug=${selectedAnime.session}`).then(r => r.json());
+    if (token !== currentFetchToken) return null;
+    if (infoRes && infoRes.success && infoRes.data && infoRes.data.anilistId) {
+      selectedAnime.anilistId = infoRes.data.anilistId;
+    }
+  }
+  return selectedAnime.anilistId;
+}
+
+async function fetchAndPlayStream(token) {
+  if (!token) token = ++currentFetchToken;
+  showLoading('Fetching sources…');
+  clearQuality();
+  try {
+    if (currentProvider === 'megaplay') {
+      showLoading('Loading ANIKOTO player…');
+      const anilistId = await ensureAnilistId(token);
+      if (token !== currentFetchToken) return;
+      if (!anilistId) {
+        throw new Error('Unable to resolve AniList ID for ANIKOTO');
+      }
+
+      // Check if DUB is available on Megaplay
+      let dubAvailable = false;
+      try {
+        const checkRes = await fetch(`/megaplay-check-dub?anilistId=${anilistId}&episode=${currentEp.number}`).then(r => r.json());
+        if (token !== currentFetchToken) return;
+        dubAvailable = !!checkRes.available;
+      } catch (e) {
+        console.error('Failed to check Megaplay DUB availability:', e);
+      }
+
+      if (token !== currentFetchToken) return;
+
+      const btnDub = document.getElementById('btnDub');
+      if (btnDub) {
+        btnDub.disabled = !dubAvailable;
+        btnDub.title = dubAvailable ? "" : "No English Dub available";
+        
+        if (!dubAvailable && currentAudioLang === 'eng') {
+          currentAudioLang = 'jpn';
+          document.getElementById('btnSub').classList.add('active');
+          btnDub.classList.remove('active');
+        }
+      }
+
+      // Hide direct player (video or Plyr)
+      const plyrEl = document.querySelector('#playerWrap .plyr');
+      if (plyrEl) plyrEl.style.display = 'none';
+      const videoEl = document.getElementById('videoEl');
+      if (videoEl) videoEl.style.display = 'none';
+      document.getElementById('playerPlaceholder').style.display = 'none';
+
+      // Create or reuse iframe
+      let iframe = document.getElementById('megaplayIframe');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'megaplayIframe';
+        iframe.setAttribute('allowfullscreen', 'true');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allowfullscreen');
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        iframe.style.position = 'absolute';
+        iframe.style.inset = '0';
+        iframe.style.background = '#000';
+        iframe.style.zIndex = '5';
+        document.getElementById('playerWrap').appendChild(iframe);
+      }
+
+      const lang = currentAudioLang === 'eng' ? 'dub' : 'sub';
+      const _b = atob('aHR0cHM6Ly9tZWdhcGxheS5idXp6'); // Obfuscated 'https://megaplay.buzz'
+      const iframeUrl = `${_b}/stream/ani/${anilistId}/${currentEp.number}/${lang}`;
+      iframe.src = iframeUrl;
+
+      // Handle loading states
+      iframe.onload = () => {
+        if (token === currentFetchToken) {
+          hideLoading();
+        }
+      };
+
+      document.getElementById('audioToggle').style.display = 'flex';
+      clearQuality();
+      clearChapters();
+      return;
+    }
+    let streamsJson = null;
+    let hasStreams = false;
+
+    // Helper: fetch streams and poll if the response is stale-cached
+    // (stale=true means the worker served old URLs while refreshing in background;
+    // those URLs are often expired/rate-limited and will fail at the HLS level)
+    const fetchStreams = async (lang) => {
+      const url = `${API}/api/streams?slug=${selectedAnime.session}&episode=${currentEp.number}&provider=${currentProvider}&lang=${lang}`;
+      let json = await fetch(url).then(r => r.json());
+      let attempts = 0;
+      while (json.success && json.data && json.data.stale === true && attempts < 10) {
+        attempts++;
+        console.log(`Stream cache stale for ${lang} (attempt ${attempts}/10), waiting 1.5s then re-fetching fresh URLs…`);
+        showLoading(`Refreshing stream cache (${attempts}/10)…`);
+        await new Promise(res => setTimeout(res, 1500));
+        if (token !== currentFetchToken) return null;
+        json = await fetch(url).then(r => r.json());
+      }
+      return json;
+    };
+
+    if (currentAudioLang === 'eng') {
+      try {
+        streamsJson = await fetchStreams('eng');
+        if (token !== currentFetchToken) return;
+        if (streamsJson && streamsJson.success && streamsJson.data && streamsJson.data.sources && streamsJson.data.sources.length) {
+          hasStreams = true;
+        }
+      } catch (_) {}
     }
 
-    // Pass the calculated ideal source structure straight to configuration pipeline
-    const chosen = getInitialSource(sources, currentAudioLang, preferredQuality);
-    renderQuality(sources, chosen); 
-    if (chosen) await loadSource(chosen);
-  } catch {
+    if (!hasStreams) {
+      streamsJson = await fetchStreams('sub');
+      if (token !== currentFetchToken) return;
+      if (!streamsJson || !streamsJson.success || !streamsJson.data || !streamsJson.data.sources || !streamsJson.data.sources.length) {
+        throw new Error('No streams found');
+      }
+      currentAudioLang = 'jpn';
+      document.getElementById('btnSub').classList.add('active');
+      document.getElementById('btnDub').classList.remove('active');
+    }
+
+    if (token !== currentFetchToken) return;
+    const srcs = streamsJson.data.sources;
+
+    let dubAvailable = false;
+    if (currentAudioLang === 'eng' && hasStreams) {
+      dubAvailable = true;
+    } else {
+      try {
+        const res = await fetch(`${API}/api/streams?slug=${selectedAnime.session}&episode=${currentEp.number}&provider=${currentProvider}&lang=eng`);
+        if (token !== currentFetchToken) return;
+        const dubJson = await res.json();
+        if (dubJson.success && dubJson.data && dubJson.data.sources && dubJson.data.sources.length) {
+          dubAvailable = true;
+        }
+      } catch (_) {}
+    }
+
+    if (token !== currentFetchToken) return;
+    document.getElementById('audioToggle').style.display = 'flex';
+    const btnDub = document.getElementById('btnDub');
+    if (dubAvailable) {
+      btnDub.disabled = false;
+      btnDub.title = "";
+    } else {
+      btnDub.disabled = true;
+      btnDub.title = "No English Dub available";
+    }
+
+    srcs.forEach(s => { s.audio = currentAudioLang; });
+
+    // Build chapter bar from intro/outro timestamps in the stream response
+    const { intro, outro } = streamsJson.data;
+    renderChapters(intro, outro);
+
+    const chosen = getInitialSource(srcs, currentAudioLang, preferredQuality);
+    const activeSrc = renderQuality(srcs, chosen);
+    const srcToLoad = chosen || activeSrc;
+    if (srcToLoad) {
+      if (token !== currentFetchToken) return;
+      await loadSource(srcToLoad, token);
+    } else {
+      throw new Error('No compatible quality source found');
+    }
+  } catch (err) {
+    if (token !== currentFetchToken) return;
+    console.error(err);
     hideLoading();
-    toast('Failed to get sources for this episode', 'err');
+    toast('Failed to load stream', 'err');
   }
 }
 
-async function loadSource(src) {
+function resolveProxyUrl(proxyUrl) {
+  if (!proxyUrl) return '';
+  if (proxyUrl.startsWith('http')) return proxyUrl;
+  return window.location.origin + proxyUrl;
+}
+
+async function loadSource(src, token) {
+  if (!token) token = ++currentFetchToken;
   updateQualityActive(src);
   showLoading(`Resolving ${src.quality} stream…`);
-  try {
-    const res = await fetch(`${API}/m3u8?url=${encodeURIComponent(src.url)}`);
-    const data = await res.json();
-    const proxyUrl = resolveProxyUrl(data.proxy_url);
-    startPlayback(proxyUrl);
-  } catch {
-    hideLoading();
-    toast(`Failed to resolve ${src.quality} stream`, 'err');
+
+  const isUUID = selectedAnime && selectedAnime.session && selectedAnime.session.includes('-') && selectedAnime.session.length === 36;
+
+  if (isUUID) {
+    try {
+      const res = await fetch(`/m3u8?url=${encodeURIComponent(src.url)}`);
+      if (token !== currentFetchToken) return;
+      const data = await res.json();
+      const proxyUrl = resolveProxyUrl(data.proxy_url);
+      startPlayback(proxyUrl, token);
+    } catch (err) {
+      if (token !== currentFetchToken) return;
+      console.error(err);
+      hideLoading();
+      toast('Failed to load stream', 'err');
+    }
+  } else {
+    const proxyUrl = window.location.origin + '/proxy?url=' + encodeURIComponent(src.streamUrl);
+    startPlayback(proxyUrl, token);
   }
 }
 
-function _playUrl(url) {
+function _playUrl(url, token) {
+  if (!token) token = currentFetchToken;
   document.getElementById('playerPlaceholder').style.display = 'none';
   const video = document.getElementById('videoEl');
 
+  const currentPos = video.currentTime;
+  const wasPlaying = !video.paused;
+
+  if (_forceAutoPlay || wasPlaying) {
+    video.autoplay = true;
+  } else {
+    video.autoplay = false;
+  }
+
   if (hls) { hls.destroy(); hls = null; }
+
+  // Stall Recovery Watchdog (disabled on iPhone to prevent native stream interruptions)
+  const isIphoneOnly = /iPhone|iPod/.test(navigator.userAgent);
+  if (!video._stallWatchdogAttached && !isIphoneOnly) {
+    video._stallWatchdogAttached = true;
+    let stallTimeout = null;
+
+    const onWaiting = () => {
+      if (video.paused || video.seeking) return;
+      console.warn('Video playback stalled, waiting for recovery...');
+      clearTimeout(stallTimeout);
+      stallTimeout = setTimeout(() => {
+        if (video.paused || video.seeking) return;
+        console.warn('Playback stalled for > 4s, attempting auto-recovery...');
+        // Nudge forward slightly to skip the gap
+        video.currentTime = Math.min(video.duration || video.currentTime + 1, video.currentTime + 0.3);
+        if (hls) {
+          try {
+            hls.startLoad();
+          } catch (_) {}
+        }
+        toast('Playback stalled — attempting auto-recovery', 'warn');
+      }, 4000);
+    };
+
+    const onClear = () => {
+      clearTimeout(stallTimeout);
+    };
+
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('stalled', onWaiting);
+    video.addEventListener('playing', onClear);
+    video.addEventListener('seeked', onClear);
+    video.addEventListener('pause', onClear);
+  }
+
+  const manifestTimeout = setTimeout(() => {
+    if (token !== currentFetchToken) return;
+    hideLoading();
+    if (hls) { hls.destroy(); hls = null; }
+    toast('Stream resolution timed out — try a different quality or server', 'err');
+  }, 10000);
 
   if (Hls.isSupported()) {
     hls = new Hls({
       enableWorker: true,
       lowLatencyMode: false,
+      enableWorker: true,
+      lowLatencyMode: false,
+      manifestLoadingMaxRetry: 6,
+      manifestLoadingRetryDelay: 1000,
+      levelLoadingMaxRetry: 6,
+      levelLoadingRetryDelay: 1000,
+      fragLoadingMaxRetry: 10,
+      fragLoadingRetryDelay: 1000,
       xhrSetup: function(xhr, segUrl) {
         if (segUrl && !segUrl.startsWith('http')) {
           try {
@@ -765,28 +1756,68 @@ function _playUrl(url) {
     hls.loadSource(url);
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      clearTimeout(manifestTimeout);
+      if (token !== currentFetchToken) return;
       hideLoading();
       const video = document.getElementById('videoEl');
       video.muted = false;
-      if (plyr) plyr.play().catch(() => {});
+      if (currentPos > 0) video.currentTime = currentPos;
+      if (_forceAutoPlay || wasPlaying) {
+        video.play().catch(() => {});
+        if (plyr) {
+          plyr.play().catch(() => {});
+        }
+      }
+      _switchingSource = false;
     });
-    hls.on(Hls.Events.ERROR, (_, d) => {
-      if (d.fatal) { hideLoading(); toast('Stream error — try a different quality', 'err'); }
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      console.warn('HLS.js error:', data);
+      if (data.fatal) {
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.log('Fatal network error, trying to recover...');
+            hls.startLoad();
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.log('Fatal media error, trying to recover...');
+            hls.recoverMediaError();
+            break;
+          default:
+            console.error('Fatal unrecoverable error:', data);
+            clearTimeout(manifestTimeout);
+            if (token !== currentFetchToken) return;
+            hideLoading();
+            toast('Stream error — try a different quality', 'err');
+            break;
+        }
+      }
     });
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = url;
-    video.addEventListener('loadedmetadata', () => {
+    const onLoaded = () => {
+      clearTimeout(manifestTimeout);
+      if (token !== currentFetchToken) return;
       hideLoading();
+      const video = document.getElementById('videoEl');
       video.muted = false;
-      if (plyr) plyr.play().catch(() => {});
-    }, { once: true });
+      if (currentPos > 0) video.currentTime = currentPos;
+      if (_forceAutoPlay || wasPlaying) {
+        video.play().catch(() => {});
+        if (plyr) {
+          plyr.play().catch(() => {});
+        }
+      }
+      _switchingSource = false;
+    };
+    video.addEventListener('loadedmetadata', onLoaded, { once: true });
   } else {
+    clearTimeout(manifestTimeout);
     hideLoading();
     toast('HLS not supported in this browser', 'err');
   }
 }
 
-function startPlayback(url) { _playUrl(url); }
+function startPlayback(url, token) { _playUrl(url, token); }
 
 // ── QUALITY ──────────────────────────────────────────────────────────────────
 function renderQuality(srcs, loadedSrc) {
@@ -802,27 +1833,47 @@ function renderQuality(srcs, loadedSrc) {
       return true; 
     });
 
+  if (!_qualitySources.length) {
+    clearQuality();
+    return null;
+  }
+
   const options = _qualitySources.map((_, i) => i);
+  const pref = localStorage.getItem('yuzu_preferred_quality') || localStorage.getItem('preferredQuality');
   
-  // Calculate index alignment based on what we are streaming right now
   let defaultIdx = 0;
   if (loadedSrc) {
     const idx = _qualitySources.findIndex(s => srcKey(s) === srcKey(loadedSrc));
     if (idx !== -1) defaultIdx = idx;
+  } else if (pref) {
+    const idx = _qualitySources.findIndex(s => s.quality === pref);
+    if (idx !== -1) defaultIdx = idx;
   }
+  
   _activeQualityIdx = defaultIdx;
-
   _buildPlyr(options, defaultIdx);
+
+  return _qualitySources[defaultIdx];
 }
 
 function updateQualityActive(src) {
-  // Plyr manages active tracking via options index mapping
+  // Plyr handles this automatically
 }
 
 function clearQuality() {
   _qualitySources = [];
   _activeQualityIdx = -1;
-  if (plyr) { try { plyr.destroy(); } catch(_) {} plyr = null; }
+  if (plyr) {
+    const wasFS = plyr.fullscreen && plyr.fullscreen.active;
+    if (wasFS && _switchingSource) {
+      _wasFullscreen = true;
+      if (plyr.fullscreen && typeof plyr.fullscreen.exit === 'function') {
+        plyr.fullscreen.exit = () => {};
+      }
+    }
+    try { plyr.destroy(); } catch(_) {}
+    plyr = null;
+  }
 }
 
 // ── EP INFO BAR ───────────────────────────────────────────────────────────────
@@ -843,6 +1894,9 @@ function showLoading(msg) {
 function hideLoading() { document.getElementById('videoLoading').classList.remove('show'); }
 
 function clearVideo() {
+  _switchingSource = false;
+  _forceAutoPlay = false;
+  _wasFullscreen = false;
   if (hls) { hls.destroy(); hls = null; }
   const v = document.getElementById('videoEl');
   v.pause(); v.removeAttribute('src'); v.load();
@@ -850,7 +1904,360 @@ function clearVideo() {
   document.getElementById('playerPlaceholder').style.display = '';
   hideLoading(); clearQuality();
   document.getElementById('epInfoBar').innerHTML = '<span class="eib-empty">No episode selected</span>';
+  document.getElementById('serverToggleLabel').style.display = 'none';
+  document.getElementById('serverToggleWrap').style.display = 'none';
+  document.getElementById('audioToggle').style.display = 'none';
+  clearChapters();
 }
+
+// ── CHAPTERS ──────────────────────────────────────────────────────────────────
+let _chapters = [];        // [{ label, start, end, type }]
+let _chapterTimeHandle = null;
+let _skipBtnHome = null;   // original parent of the skip button
+let _skipBtnTimeout = null;
+let _skipBtnUserHidden = false;
+let _lastSkipChapter = null;
+let _tooltipObserver = null;
+
+function fmtSecs(s) {
+  s = Math.round(s);
+  const m = Math.floor(s / 60), sec = s % 60;
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+function clearChapters() {
+  _chapters = [];
+  const container = plyr && plyr.elements && plyr.elements.container;
+  if (container) container.classList.remove('plyr-has-chapters');
+
+  const btn = document.getElementById('skipBtn');
+  if (btn) {
+    btn.classList.remove('show', 'outro-skip');
+  }
+  _lastSkipChapter = null;
+  _skipBtnUserHidden = false;
+
+  // Clear seekbar segments container
+  const seekbarContainer = document.querySelector('.plyr-chapters-container');
+  if (seekbarContainer) seekbarContainer.remove();
+
+  if (_tooltipObserver) { _tooltipObserver.disconnect(); _tooltipObserver = null; }
+  if (_skipBtnTimeout) { clearTimeout(_skipBtnTimeout); _skipBtnTimeout = null; }
+  if (_chapterTimeHandle) { clearInterval(_chapterTimeHandle); _chapterTimeHandle = null; }
+}
+
+function showSkipBtnTemporarily() {
+  if (!_chapters.length) return;
+  const video = document.getElementById('videoEl');
+  if (!video || video.paused) return;
+  const t = video.currentTime;
+  const ch = _chapters.find(c => t >= c.start && t < c.end);
+  const isSkipCh = ch && (ch.type === 'intro' || ch.type === 'outro');
+
+  if (isSkipCh) {
+    _skipBtnUserHidden = false;
+    const skipBtn = document.getElementById('skipBtn');
+    const skipLabel = document.getElementById('skipBtnLabel');
+    if (skipBtn && !skipBtn.classList.contains('show')) {
+      skipBtn.classList.add('show');
+      skipBtn.classList.toggle('outro-skip', ch.type === 'outro');
+      if (skipLabel) skipLabel.textContent = ch.type === 'intro' ? 'Skip Intro' : 'Skip Outro';
+    }
+    resetSkipBtnTimeout();
+  }
+}
+
+function resetSkipBtnTimeout() {
+  if (_skipBtnTimeout) clearTimeout(_skipBtnTimeout);
+  _skipBtnTimeout = setTimeout(() => {
+    _skipBtnUserHidden = true;
+    const skipBtn = document.getElementById('skipBtn');
+    if (skipBtn) {
+      skipBtn.classList.remove('show', 'outro-skip');
+    }
+  }, 5000);
+}
+
+// Global user interaction listeners to reveal skip button
+document.addEventListener('mousemove', showSkipBtnTemporarily);
+document.addEventListener('touchstart', showSkipBtnTemporarily);
+
+// Chapter progress and buffer tracking event handlers
+function updateProgressChaptersFill() {
+  const video = document.getElementById('videoEl');
+  if (!video || !video.duration || !_chapters.length) return;
+
+  const t = video.currentTime;
+  const segments = document.querySelectorAll('.plyr-chapter-segment');
+  
+  _chapters.forEach((ch, idx) => {
+    const seg = segments[idx];
+    if (!seg) return;
+
+    const fill = seg.querySelector('.plyr-chapter-fill');
+    if (!fill) return;
+
+    if (t < ch.start) {
+      fill.style.width = '0%';
+    } else if (t > ch.end) {
+      fill.style.width = '100%';
+    } else {
+      const pct = ((t - ch.start) / (ch.end - ch.start)) * 100;
+      fill.style.width = pct + '%';
+    }
+  });
+}
+
+function updateProgressChaptersBuffer() {
+  const video = document.getElementById('videoEl');
+  if (!video || !video.duration || !_chapters.length) return;
+
+  const buffered = video.buffered;
+  const segments = document.querySelectorAll('.plyr-chapter-segment');
+  
+  _chapters.forEach((ch, idx) => {
+    const seg = segments[idx];
+    if (!seg) return;
+
+    const buffer = seg.querySelector('.plyr-chapter-buffer');
+    if (!buffer) return;
+
+    let totalIntersection = 0;
+    for (let i = 0; i < buffered.length; i++) {
+      const start = buffered.start(i);
+      const end = buffered.end(i);
+      
+      const intersectStart = Math.max(start, ch.start);
+      const intersectEnd = Math.min(end, ch.end);
+      if (intersectEnd > intersectStart) {
+        totalIntersection += (intersectEnd - intersectStart);
+      }
+    }
+
+    const chDur = ch.end - ch.start;
+    const pct = chDur > 0 ? (totalIntersection / chDur) * 100 : 0;
+    buffer.style.width = pct + '%';
+  });
+}
+
+const videoEl = document.getElementById('videoEl');
+if (videoEl) {
+  videoEl.addEventListener('timeupdate', updateProgressChaptersFill);
+  videoEl.addEventListener('progress', updateProgressChaptersBuffer);
+}
+
+function rebuildProgressChapters() {
+  const progressContainer = document.querySelector('.plyr__progress');
+  if (!progressContainer) return;
+
+  const container = plyr && plyr.elements && plyr.elements.container;
+  if (!_chapters.length) {
+    if (container) container.classList.remove('plyr-has-chapters');
+    return;
+  }
+
+  const video = document.getElementById('videoEl');
+  const dur = video.duration;
+  if (!dur || isNaN(dur)) return;
+
+  if (container) container.classList.add('plyr-has-chapters');
+
+  let seekbarContainer = progressContainer.querySelector('.plyr-chapters-container');
+  if (!seekbarContainer) {
+    seekbarContainer = document.createElement('div');
+    seekbarContainer.className = 'plyr-chapters-container';
+    progressContainer.appendChild(seekbarContainer);
+  } else {
+    seekbarContainer.innerHTML = '';
+  }
+
+  _chapters.forEach((ch, idx) => {
+    const segment = document.createElement('div');
+    segment.className = 'plyr-chapter-segment';
+    segment.dataset.type = ch.type;
+    segment.dataset.index = idx;
+    
+    const pct = ((ch.end - ch.start) / dur) * 100;
+    segment.style.width = pct + '%';
+
+    const bufferFill = document.createElement('div');
+    bufferFill.className = 'plyr-chapter-buffer';
+
+    const progressFill = document.createElement('div');
+    progressFill.className = 'plyr-chapter-fill';
+
+    segment.appendChild(bufferFill);
+    segment.appendChild(progressFill);
+    seekbarContainer.appendChild(segment);
+  });
+  
+  updateProgressChaptersFill();
+  updateProgressChaptersBuffer();
+}
+
+function setupTooltipObserver() {
+  if (_tooltipObserver) return;
+  const tooltip = document.querySelector('.plyr__progress .plyr__tooltip');
+  if (!tooltip) return;
+
+  _tooltipObserver = new MutationObserver((mutations) => {
+    // Avoid double processing if our styled span is already present
+    if (tooltip.querySelector('.plyr-tooltip-chapter')) return;
+
+    const txt = tooltip.textContent.trim();
+    if (!txt || !_chapters.length) return;
+
+    const parts = txt.split(':').map(Number);
+    let secs = 0;
+    if (parts.length === 2) {
+      secs = parts[0] * 60 + parts[1];
+    } else if (parts.length === 3) {
+      secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else {
+      return;
+    }
+
+    const ch = _chapters.find(c => secs >= c.start && secs < c.end);
+    if (ch && ch.label) {
+      _tooltipObserver.disconnect();
+      tooltip.innerHTML = `${txt} <span class="plyr-tooltip-chapter">• ${ch.label}</span>`;
+      _tooltipObserver.observe(tooltip, { childList: true, characterData: true, subtree: true });
+    }
+  });
+
+  _tooltipObserver.observe(tooltip, { childList: true, characterData: true, subtree: true });
+}
+
+function renderChapters(intro, outro) {
+  clearChapters();
+
+  const hasIntro = intro && intro.start != null && intro.end > intro.start;
+  const hasOutro = outro && outro.start != null && outro.end > outro.start;
+  if (!hasIntro && !hasOutro) return;
+
+  // Remember the skip button's original parent for fullscreen move/restore
+  const skipBtn = document.getElementById('skipBtn');
+  if (!_skipBtnHome) _skipBtnHome = skipBtn.parentElement;
+
+  const video = document.getElementById('videoEl');
+
+  const buildPills = () => {
+    if (window._chapterBuilt) return;
+    const dur = video.duration;
+    if (!dur || isNaN(dur)) return;
+    window._chapterBuilt = true;
+
+    _chapters = [];
+    if (hasIntro) {
+      if (intro.start > 0) _chapters.push({ label: 'Cold Open', start: 0, end: intro.start, type: 'main' });
+      _chapters.push({ label: 'Intro', start: intro.start, end: intro.end, type: 'intro' });
+    }
+    if (hasOutro) {
+      const mainStart = hasIntro ? intro.end : 0;
+      if (outro.start > mainStart) _chapters.push({ label: 'Episode', start: mainStart, end: outro.start, type: 'main' });
+      _chapters.push({ label: 'Outro', start: outro.start, end: outro.end, type: 'outro' });
+      if (outro.end < dur) _chapters.push({ label: 'Post-Credits', start: outro.end, end: dur, type: 'main' });
+    } else if (hasIntro) {
+      _chapters.push({ label: 'Episode', start: intro.end, end: dur, type: 'main' });
+    }
+
+    setupTooltipObserver();
+    rebuildProgressChapters();
+
+    startChapterTracking();
+  };
+
+  window._chapterBuilt = false;
+  if (video.readyState >= 1 && video.duration) {
+    buildPills();
+  } else {
+    video.addEventListener('loadedmetadata', buildPills, { once: true });
+    video.addEventListener('durationchange', buildPills, { once: true });
+  }
+}
+
+function startChapterTracking() {
+  if (_chapterTimeHandle) clearInterval(_chapterTimeHandle);
+  const video = document.getElementById('videoEl');
+  const skipBtn = document.getElementById('skipBtn');
+  const skipLabel = document.getElementById('skipBtnLabel');
+
+  _chapterTimeHandle = setInterval(() => {
+    if (!_chapters.length || !video || !video.duration) return;
+    const t = video.currentTime;
+
+    let activeIdx = -1;
+    _chapters.forEach((ch, i) => { if (t >= ch.start && t < ch.end) activeIdx = i; });
+
+    // Show / hide skip button during intro or outro
+    const ch = activeIdx >= 0 ? _chapters[activeIdx] : null;
+    const isSkipCh = ch && (ch.type === 'intro' || ch.type === 'outro');
+
+    if (!video.paused && isSkipCh) {
+      if (_lastSkipChapter !== ch) {
+        _lastSkipChapter = ch;
+        _skipBtnUserHidden = false;
+        resetSkipBtnTimeout();
+      }
+
+      if (!_skipBtnUserHidden) {
+        if (skipBtn) {
+          skipBtn.classList.add('show');
+          skipBtn.classList.toggle('outro-skip', ch.type === 'outro');
+        }
+        if (skipLabel) {
+          skipLabel.textContent = ch.type === 'intro' ? 'Skip Intro' : 'Skip Outro';
+        }
+      } else {
+        if (skipBtn) skipBtn.classList.remove('show', 'outro-skip');
+      }
+    } else {
+      _lastSkipChapter = null;
+      _skipBtnUserHidden = false;
+      if (skipBtn) skipBtn.classList.remove('show', 'outro-skip');
+      if (_skipBtnTimeout) { clearTimeout(_skipBtnTimeout); _skipBtnTimeout = null; }
+    }
+  }, 500);
+}
+
+function skipChapter() {
+  const video = document.getElementById('videoEl');
+  const t = video.currentTime;
+  const ch = _chapters.find(c => t >= c.start && t < c.end);
+  if (ch) {
+    video.currentTime = ch.end;
+    if (plyr) plyr.play().catch(() => {});
+  }
+}
+
+function hideMouseCursor() {
+  document.documentElement.classList.add('hide-cursor');
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (fsEl) fsEl.classList.add('hide-cursor');
+}
+function showMouseCursor() {
+  document.documentElement.classList.remove('hide-cursor');
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (fsEl) fsEl.classList.remove('hide-cursor');
+}
+
+// Move the skip button into the fullscreen element and manage cursor visibility across browser engines
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    const skipBtn = document.getElementById('skipBtn');
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    if (fsEl) {
+      // Entering fullscreen — reparent skip button into the fullscreen container
+      if (skipBtn) fsEl.appendChild(skipBtn);
+    } else {
+      // Exiting fullscreen — move it back home
+      if (skipBtn && _skipBtnHome) _skipBtnHome.appendChild(skipBtn);
+      
+      // Restore cursor
+      showMouseCursor();
+    }
+  });
+});
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -867,27 +2274,32 @@ function toast(msg, type='warn', dur=4000) {
 // ── AUTO-LOAD FROM URL PARAMS ─────────────────────────────────────────────────
 (async function init() {
   const params  = new URLSearchParams(window.location.search);
-  const session = params.get('session');
+  let   session = params.get('session');
   const title   = params.get('title') || 'Unknown Anime';
-  const epParam = params.get('ep');
+  const epParam = params.get('episode') || params.get('ep');
+  const epImgParam = params.get('ep_img') || params.get('episode_image') || '';
   let   poster  = params.get('poster') || '';
 
   if (!session) return;
 
+  // Resolve AnimePahe session (UUID) to Worker slug if needed
+  if (session.includes('-') && session.length === 36) {
+    try {
+      const searchRes = await fetch(`${API}/api/search?q=` + encodeURIComponent(title));
+      const searchJson = await searchRes.json();
+      const results = (searchJson.success && searchJson.data && searchJson.data.results) || [];
+      if (results.length) {
+        session = results[0].slug;
+      }
+    } catch (_) {}
+  }
   if (!poster) {
     try {
-      const ids = await fetch(`${API}/ids?session=` + encodeURIComponent(session)).then(r => r.json());
-      if (ids && ids.anilist) {
-        const anilistRes = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `query($id:Int){Media(id:$id){coverImage{large}}}`,
-            variables: { id: ids.anilist }
-          })
-        });
-        const anilistData = await anilistRes.json();
-        poster = anilistData?.data?.Media?.coverImage?.large || '';
+      const res = await fetch(`${API}/api/info?slug=` + encodeURIComponent(session));
+      const json = await res.json();
+      if (json.success && json.data) {
+        const d = json.data;
+        poster = (d.coverImage && (d.coverImage.large || d.coverImage.medium)) || '';
       }
     } catch (_) {}
   }
@@ -896,7 +2308,20 @@ function toast(msg, type='warn', dur=4000) {
 
   const eps = window._loadedEpisodes || [];
   if (!eps.length) return;
-  const target = epParam ? eps.find(e => String(e.number) === epParam) : null;
+
+  let target = null;
+  if (epParam) {
+    target = eps.find(e => String(e.number) === epParam);
+    if (!target) {
+      target = { number: Number(epParam), title: 'Episode ' + epParam, img: epImgParam };
+      eps.push(target);
+      renderEpisodes(eps);
+    } else if (epImgParam && !target.img) {
+      target.img = epImgParam;
+      renderEpisodes(eps);
+    }
+  }
+
   playEpisode(target || eps[0]);
 })();
 
@@ -931,6 +2356,13 @@ function toast(msg, type='warn', dur=4000) {
     });
     obs.observe(topDot, { attributes: true, attributeFilter: ['class'] });
     if (topText) obs.observe(topText, { childList: true, characterData: true, subtree: true });
+  }
+
+  // Load Stress Test Panel if query parameter `stress` is active
+  if (new URLSearchParams(window.location.search).has('stress')) {
+    const script = document.createElement('script');
+    script.src = '/stress-test.js';
+    document.body.appendChild(script);
   }
 })();
 </script>

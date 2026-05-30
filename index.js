@@ -105,6 +105,32 @@ app.get('/ids', async (req, res) => {
   }
 });
 
+app.get('/megaplay-check-dub', async (req, res) => {
+  try {
+    const { anilistId, episode } = req.query;
+    if (!anilistId || !episode) {
+      return res.status(400).json({ error: 'Query parameters "anilistId" and "episode" are required' });
+    }
+
+    const url = `https://megaplay.buzz/stream/ani/${anilistId}/${episode}/dub`;
+    const axios = require('axios');
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://megaplay.buzz/'
+      },
+      timeout: 4000,
+      validateStatus: () => true
+    });
+
+    const isAvailable = response.status === 200 && !response.data.includes('Error - MegaPlay');
+    res.json({ available: isAvailable });
+  } catch (error) {
+    console.error('Megaplay check dub error:', error.message);
+    res.json({ available: false });
+  }
+});
+
 app.get('/m3u8', async (req, res) => {
   try {
     const { url } = req.query;
@@ -131,9 +157,34 @@ app.get('/m3u8', async (req, res) => {
 
 app.get('/proxy', async (req, res) => {
   try {
-    const { url, referer: customReferer } = req.query;
+    let { url, referer: customReferer } = req.query;
     if (!url) {
       return res.status(400).json({ error: 'Query parameter "url" is required' });
+    }
+
+    // Intercept and decrypt prox.anikage.cc URLs to bypass their rate limits and stream directly from the CDNs
+    if (url.includes('prox.anikage.cc/stream/')) {
+      const matches = [...url.matchAll(/\/stream\/([A-Za-z0-9+\x3d_-]{40,})/g)];
+      if (matches.length > 0) {
+        const lastToken = matches[matches.length - 1][1];
+        try {
+          const b = Buffer.from(lastToken, 'base64');
+          const k = 'aproxy2026';
+          const d = [];
+          for (let i = 0; i < b.length; i++) {
+            d.push(b[i] ^ k.charCodeAt(i % k.length));
+          }
+          const decrypted = String.fromCharCode(...d);
+          const parts = decrypted.split('\x00');
+          if (parts[0] && parts[0].startsWith('http')) {
+            url = parts[0];
+            customReferer = parts[1] || 'https://kwik.cx/';
+            console.log(`[proxy] Decrypted anikage URL to direct storage: ${url} | referer: ${customReferer}`);
+          }
+        } catch (decErr) {
+          console.error('[proxy] Decryption error for anikage URL:', decErr.message);
+        }
+      }
     }
 
     // Auto-resolve kwik embed pages
@@ -250,4 +301,4 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Animepahe API server running on port ${PORT}`);
   });
-      }
+}

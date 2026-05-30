@@ -1039,7 +1039,7 @@ body {
     <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     Home
   </a>
-  <a href="/watch" id="mobNavWatch">
+  <a href="player.html" id="mobNavWatch">
     <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
     Watch
   </a>
@@ -1075,7 +1075,7 @@ body {
   <a href="/" class="logo">YU<span>ZU</span></a>
   <nav class="nav">
     <a href="/" class="active" id="navHome">Home</a>
-    <a href="/watch">Watch</a>
+    <a href="player.html">Watch</a>
     <a href="#trending" id="navTrending">Trending</a>
     <a href="#new" id="navNew">New</a>
     <a href="#" id="navCalendar" class="nav-calendar-btn">
@@ -1269,7 +1269,7 @@ body {
 
 <script>
   // Add this right after the opening <script> tag
-const API_BASE = 'https://animepaheapi-b8oh.onrender.com';
+const API_BASE = 'https://anikage-scraper-api.ntw-cts.workers.dev';
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -1292,9 +1292,9 @@ function toast(msg, type='warn', dur=3500) {
 // To add more aliases: append { match: /regex/i, alias: 'Provider Title' }
 const TITLE_ALIAS_MAP = [
   {
-    // Translate any "Re:Zero" search to the full Japanese name to show ALL seasons
-    match: /re.?zero/i,
-    alias: 'Re:Zero kara Hajimeru Isekai Seikatsu',
+    // Re:ZERO Season 4 — provider only finds it via romaji
+    match: /re.?zero.{0,60}season\s*4/i,
+    alias: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
   },
 ];
 
@@ -1333,7 +1333,8 @@ function _pickBest(results, searchTitle, aliased, targetYear) {
   if (aliased) return results[0]; // trust the provider-exact query
   const normTarget = _norm(searchTitle);
   function score(r) {
-    let s = _similarity(normTarget, _norm(r.title || ''));
+    const titleText = r.title && (r.title.english || r.title.romaji);
+    let s = _similarity(normTarget, _norm(titleText || ''));
     if (targetYear && r.year) {
       if (r.year === targetYear) s += 0.3;
       else s -= 0.15 * Math.min(1, Math.abs(r.year - targetYear) / 4);
@@ -1342,7 +1343,8 @@ function _pickBest(results, searchTitle, aliased, targetYear) {
   }
   const sorted = results.slice().sort((a, b) => score(b) - score(a));
   const best = sorted[0];
-  const rawSim = _similarity(normTarget, _norm(best.title || ''));
+  const bestTitle = best && best.title && (best.title.english || best.title.romaji);
+  const rawSim = _similarity(normTarget, _norm(bestTitle || ''));
   return rawSim >= 0.72 ? best : null;
 }
 
@@ -1358,16 +1360,41 @@ async function goWatch(anime) {
   const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
   try {
     toast('Searching for ' + displayTitle + '…', 'warn', 4000);
-    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
-    const results = await res.json();
-    if (!Array.isArray(results) || !results.length) {
-      toast('Not found on AnimePahe', 'err'); return;
+    // Fetch local search and worker search in parallel
+    const fetches = [
+      fetch(API_BASE + '/api/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => ({success:false})),
+      fetch('/search?q=' + encodeURIComponent(displayTitle)).then(r => r.json()).catch(() => [])
+    ];
+    const [json, localRes] = await Promise.all(fetches);
+    const results = (json.success && json.data && json.data.results) || [];
+    if (!results.length && !localRes.length) {
+      toast('Not found on Anikage', 'err'); return;
     }
-    const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    
+    // Match by AniList ID if available to prevent fuzzy match errors
+    let best = null;
+    if (anime.id) {
+      best = results.find(r => r.anilistId === anime.id);
+    }
+    if (!best) {
+      best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    }
+    
+    if (!best && localRes.length) {
+      // Fallback to local result if no worker match was found
+      best = {
+        slug: localRes[0].session,
+        coverImage: { large: localRes[0].poster || '' },
+        title: { romaji: localRes[0].title || '', english: localRes[0].title || '' }
+      };
+    }
+    
     if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
-    window.location.href = '/watch?session=' + encodeURIComponent(best.session || best.anime_session || '')
-      + '&title=' + encodeURIComponent(displayTitle) // keep English title in URL for player display
-      + (best.poster ? '&poster=' + encodeURIComponent(best.poster) : '');
+    
+    const bestPoster = best.coverImage && (best.coverImage.large || best.coverImage.medium || '');
+    window.location.href = '/watch?session=' + encodeURIComponent(best.slug || '')
+      + '&title=' + encodeURIComponent(displayTitle)
+      + (bestPoster ? '&poster=' + encodeURIComponent(bestPoster) : '');
   } catch(_) {
     toast('Could not reach server', 'err');
   }
@@ -1377,9 +1404,10 @@ async function goWatch(anime) {
 async function goWatchEpisode(anime, episode) {
   const session = anime.anime_session || anime.session || '';
   const epParam = episode ? '&episode=' + encodeURIComponent(episode) : '';
+  const epImgParam = anime.snapshot ? '&ep_img=' + encodeURIComponent(anime.snapshot) : '';
   if (session) {
     window.location.href = '/watch?session=' + encodeURIComponent(session)
-      + '&title=' + encodeURIComponent(anime.title || '') + epParam;
+      + '&title=' + encodeURIComponent(anime.title || '') + epParam + epImgParam;
     return;
   }
   const displayTitle = anime.title || '';
@@ -1387,15 +1415,40 @@ async function goWatchEpisode(anime, episode) {
   const { searchTitle, aliased } = resolveSearchTitle(displayTitle);
   try {
     toast('Searching for ' + displayTitle + '…', 'warn', 4000);
-    const res = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
-    const results = await res.json();
-    if (!Array.isArray(results) || !results.length) { toast('Not found on AnimePahe', 'err'); return; }
-    const best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    // Fetch local search and worker search in parallel
+    const fetches = [
+      fetch(API_BASE + '/api/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json().catch(() => ({success:false}))),
+      fetch('/search?q=' + encodeURIComponent(displayTitle)).then(r => r.json().catch(() => []))
+    ];
+    const [json, localRes] = await Promise.all(fetches);
+    const results = (json.success && json.data && json.data.results) || [];
+    if (!results.length && !localRes.length) { toast('Not found on Anikage', 'err'); return; }
+    
+    let best = null;
+    if (anime.id) {
+      best = results.find(r => r.anilistId === anime.id);
+    }
+    if (!best) {
+      best = _pickBest(results, searchTitle, aliased, anime.seasonYear || anime.year || null);
+    }
+    
+    if (!best && localRes.length) {
+      // Fallback to local result if no worker match was found
+      best = {
+        slug: localRes[0].session,
+        coverImage: { large: localRes[0].poster || '' },
+        title: { romaji: localRes[0].title || '', english: localRes[0].title || '' }
+      };
+    }
+    
     if (!best) { toast('No close match found for: ' + displayTitle, 'err'); return; }
-    window.location.href = '/watch?session=' + encodeURIComponent(best.session || best.anime_session || '')
+    
+    const bestPoster = best.coverImage && (best.coverImage.large || best.coverImage.medium || '');
+    window.location.href = '/watch?session=' + encodeURIComponent(best.slug || '')
       + '&title=' + encodeURIComponent(displayTitle)
-      + (best.poster ? '&poster=' + encodeURIComponent(best.poster) : '')
-      + epParam;
+      + (bestPoster ? '&poster=' + encodeURIComponent(bestPoster) : '')
+      + epParam + epImgParam;
+    return;
   } catch(_) { toast('Could not reach server', 'err'); }
 }
 
@@ -1403,13 +1456,18 @@ async function goWatchEpisode(anime, episode) {
 async function checkHealth() {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
   try {
-    const r = await fetch(API_BASE + '/health', { signal: AbortSignal.timeout(4000) });
+    const r = await fetch(API_BASE + '/', { signal: controller.signal });
+    clearTimeout(timeoutId);
     const d = await r.json();
-    if (r.ok && d.status === 'ok') {
+    if (r.ok && d.name && d.name.includes('Anikage')) {
       dot.className = 'status-dot green'; txt.textContent = 'API online'; return;
     }
-  } catch(_) {}
+  } catch(_) {
+    clearTimeout(timeoutId);
+  }
   dot.className = 'status-dot red'; txt.textContent = 'API offline';
 }
 // ── SEARCH ────────────────────────────────────────────────────────────────────
@@ -1452,24 +1510,78 @@ async function doSearch(q) {
   try {
     const { searchTitle, aliased } = resolveSearchTitle(q);
 
-    // If an alias exists, query the provider with the romaji title.
-    // Otherwise query normally. In both cases also run the original user
-    // query in parallel so we surface anything the alias might miss.
-    const fetches = [fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => [])];
-    if (aliased) {
-      fetches.push(fetch(API_BASE + '/search?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => []));
-    }
-    const [primary, secondary] = await Promise.all(fetches);
+    // Run parallel fetches:
+    //  1. Worker/AniList search (strict, has metadata)
+    //  2. Local AnimePahe search (raw query)
+    //  3. Local AnimePahe search with " season" appended — catches franchise
+    //     sequels outside top-8 of base query (e.g. Re:Zero S4 from "re zero")
+    const seasonVariant = /\bseason\b|\bpart\b|\bs\d/i.test(q) ? null : q.trim() + ' season';
+    const fetches = [
+      fetch(API_BASE + '/api/search?q=' + encodeURIComponent(searchTitle)).then(r => r.json()).catch(() => ({success:false})),
+      fetch('/search?q=' + encodeURIComponent(q)).then(r => r.json().catch(() => [])),
+    ];
+    if (seasonVariant) fetches.push(fetch('/search?q=' + encodeURIComponent(seasonVariant)).then(r => r.json().catch(() => [])));
+    if (aliased) fetches.push(fetch(API_BASE + '/api/search?q=' + encodeURIComponent(q)).then(r => r.json().catch(() => ({success:false}))));
 
-    // Merge, deduplicate by session
+    const resultsList = await Promise.all(fetches);
+    const primary = resultsList[0];
+    const localRes = resultsList[1];
+    const localSeasonRes = seasonVariant ? resultsList[2] : [];
+    const secondary = aliased ? resultsList[seasonVariant ? 3 : 2] : null;
+
+    const primaryResults = (primary.success && primary.data && primary.data.results) || [];
+    const secondaryResults = (secondary && secondary.success && secondary.data && secondary.data.results) || [];
+    const localItems = [
+      ...(Array.isArray(localRes) ? localRes : []),
+      ...(Array.isArray(localSeasonRes) ? localSeasonRes : [])
+    ];
+
+    // Merge, deduplicate by session/slug/title
     const seen = new Set();
     const data = [];
-    for (const item of [...(primary||[]), ...(secondary||[])]) {
-      const key = item.session || item.anime_session || item.id || item.title;
+    
+    // Add worker results first
+    for (const item of [...primaryResults, ...secondaryResults]) {
+      const key = item.slug || item.anilistId;
       if (key && seen.has(key)) continue;
       if (key) seen.add(key);
       data.push(item);
     }
+
+    // Index seen normalized titles for deduplication
+    const seenTitles = new Set(data.map(r => {
+      const title = r.title ? (r.title.english || r.title.romaji || '') : '';
+      return title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    }));
+
+    // Add local results that are not already present in the worker results
+    for (const item of localItems) {
+      const normTitle = String(item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normTitle && !seenTitles.has(normTitle)) {
+        seenTitles.add(normTitle);
+        data.push({
+          slug: item.session || '',
+          anilistId: null,
+          title: { romaji: item.title || '', english: item.title || '' },
+          coverImage: {
+            medium: item.poster || '',
+            large: item.poster || '',
+            extraLarge: item.poster || ''
+          },
+          type: 'ANIME',
+          format: item.type || 'TV',
+          year: item.year || null,
+        });
+      }
+    }
+
+    // Sort: worker (AniList) results first, then local results newest-first
+    data.sort((a, b) => {
+      const aIsWorker = !!a.anilistId;
+      const bIsWorker = !!b.anilistId;
+      if (aIsWorker !== bIsWorker) return aIsWorker ? -1 : 1;
+      return (b.year || 0) - (a.year || 0);
+    });
 
     dropdown.innerHTML = '';
     if (!data.length) {
@@ -1478,21 +1590,22 @@ async function doSearch(q) {
       data.forEach((item, i) => {
         const el = document.createElement('div');
         el.className = 'dd-item' + (i === 0 ? ' focused' : '');
+        const titleText = item.title ? (item.title.english || item.title.romaji) : 'Unknown';
+        const poster = item.coverImage ? (item.coverImage.large || item.coverImage.medium || '') : '';
         el.innerHTML =
-          '<img src="' + BLANK + '" style="background:var(--bg3)" loading="lazy">' +
-          '<div class="dd-info"><div class="dd-title">' + esc(item.title) + '</div>' +
-          '<div class="dd-meta">Ep ' + esc(item.episode||'') + ' · ' + esc(item.type||'TV') + '</div></div>' +
-          '<span class="dd-badge">' + esc(item.type||'TV') + '</span>';
-        // Click navigates directly by session — no secondary search needed
+          '<img src="' + esc(poster) + '" onerror="this.style.background=\'var(--bg3)\'" loading="lazy">' +
+          '<div class="dd-info"><div class="dd-title">' + esc(titleText) + '</div>' +
+          '<div class="dd-meta">' + esc(item.year || '') + ' · ' + esc(item.format || 'TV') + '</div></div>' +
+          '<span class="dd-badge">' + esc(item.format || 'TV') + '</span>';
+        // Click navigates directly by session/slug
         el.addEventListener('click', () => {
           closeDD();
-          window.location.href = '/watch?session=' + encodeURIComponent(item.session||item.anime_session||'')
-            + '&title=' + encodeURIComponent(item.title||'')
-            + (item.poster ? '&poster=' + encodeURIComponent(item.poster) : '');
+          window.location.href = '/watch?session=' + encodeURIComponent(item.slug || '')
+            + '&title=' + encodeURIComponent(titleText)
+            + (poster ? '&poster=' + encodeURIComponent(poster) : '');
         });
         dropdown.appendChild(el);
         ddItems.push(el);
-        swapImgCover(el.querySelector('img'), item.session||item.anime_session||'', item.title||null);
       });
       focusIdx = 0;
     }
@@ -1552,17 +1665,21 @@ function makeAnimeCard(item) {
 }
 
 function makeWideCard(item) {
+  const titleText = item.title || 'Unknown';
+  const banner = item.snapshot || '';
+  const episode = item.episode || '';
+
   const div = document.createElement('div');
   div.className = 'wide-card fade-in';
   div.innerHTML =
-    '<div class="wide-card-banner-wrap"><img src="' + esc(item.snapshot||'') + '" onerror="this.style.background=\'var(--bg3)\'" loading="lazy"></div>' +
+    '<div class="wide-card-banner-wrap"><img src="' + esc(banner) + '" onerror="this.style.background=\'var(--bg3)\'" loading="lazy"></div>' +
     '<div class="wide-card-body">' +
-      '<div class="wide-card-title">' + esc(item.title) + '</div>' +
-      '<div class="wide-card-meta">Episode ' + esc(item.episode||'') + '</div>' +
+      '<div class="wide-card-title">' + esc(titleText) + '</div>' +
+      '<div class="wide-card-meta">Episode ' + esc(episode) + '</div>' +
       '<div class="wide-card-ep">Latest episode available</div>' +
     '</div>';
-  div.addEventListener('click', () => goWatchEpisode(item, item.episode));
-  // recently updated uses scraper snapshot directly
+
+  div.addEventListener('click', () => goWatchEpisode(item, episode));
   return div;
 }
 
@@ -1736,7 +1853,7 @@ function openModalForSession(session, title, item) {
 
 function buildWatchHref(item) {
   const session = item.anime_session || item.session || '';
-  return '/watch?session=' + encodeURIComponent(session) + '&title=' + encodeURIComponent(item.title || '') + (item.cover ? '&poster=' + encodeURIComponent(item.cover) : '');
+  return 'player.html?session=' + encodeURIComponent(session) + '&title=' + encodeURIComponent(item.title || '') + (item.cover ? '&poster=' + encodeURIComponent(item.cover) : '');
 }
 
 function renderModal(item, watchHref) {
@@ -1984,104 +2101,75 @@ async function _fetchJikan(title) {
 async function prefetchCovers(items) {
   const sessions = [...new Set(items.map(i => i.anime_session || i.session || '').filter(Boolean))];
   const needed = sessions.filter(s => !_coverCache[s] && !_coverFailed.has(s));
-  if (!needed.length) return;
-
-  const titleMap = {};
-  items.forEach(i => {
-    const s = i.anime_session || i.session || '';
-    if (s && i.title) titleMap[s] = i.title;
-  });
-
-  // ── Step 1: resolve /ids in chunks of 8 (avoid backend overload) ──
-  const CHUNK = 8;
-  const idMap = {};
-  for (let i = 0; i < needed.length; i += CHUNK) {
-    const chunk = needed.slice(i, i + CHUNK);
-    const results = await Promise.all(
-      chunk.map(s => fetch(API_BASE + '/ids?session=' + encodeURIComponent(s)).then(r => r.json()).catch(() => ({})))
-    );
-    chunk.forEach((s, j) => { if (results[j] && results[j].anilist) idMap[s] = results[j].anilist; });
-  }
-
-  // ── Step 2: ONE batch AniList request by ID ──
-  const coverMapById = await _batchAniList(idMap);
-
-  // Separate: sessions resolved by ID vs still missing
-  const stillMissing = needed.filter(s => !coverMapById[s]);
-
-  // ── Step 3: ONE batch AniList title-search for all still-missing sessions ──
-  const titleSearchMap = {};
-  stillMissing.forEach(s => { if (titleMap[s]) titleSearchMap[s] = titleMap[s]; });
-  const coverMapByTitle = await _batchAniListByTitle(titleSearchMap);
-
-  // ── Step 4: cache AniList results, collect remaining misses for Jikan ──
-  const jikanQueue = []; // { session, title, delay }
-  needed.forEach(s => {
-    const data = coverMapById[s] || coverMapByTitle[s] || null;
-    if (data) {
-      _coverCache[s] = Promise.resolve(data);
-      // Non-blocking episode patch from Jikan if AniList had no episode count
-      if (data.episodes == null && titleMap[s]) {
-        _fetchJikan(titleMap[s]).then(j => { if (j && j.episodes != null) data.episodes = j.episodes; });
-      }
-    } else if (titleMap[s]) {
-      jikanQueue.push(s);
-    } else {
-      _coverFailed.add(s);
-    }
-  });
-
-  // ── Step 5: Jikan for anything AniList truly couldn't find ──
-  // Staggered to respect Jikan's rate limit (~3 req/sec)
-  if (jikanQueue.length) {
-    const jikanPromises = jikanQueue.map((s, i) => {
-      const p = new Promise(resolve => setTimeout(resolve, i * 400))
-        .then(() => _fetchJikan(titleMap[s]))
-        .then(jData => {
-          if (jData) { _coverCache[s] = Promise.resolve(jData); }
-          else { _coverFailed.add(s); delete _coverCache[s]; }
-          return jData;
-        });
-      _coverCache[s] = p; // store promise so concurrent getCoverData calls deduplicate
-      return p;
-    });
-    await Promise.all(jikanPromises);
-  }
+  await Promise.all(needed.map(s => getCoverData(s)));
 }
 
-function getCoverData(session, titleHint) {
-  if (!session && !titleHint) return Promise.resolve(null);
+async function getCoverData(session, titleHint) {
+  if (!session && !titleHint) return null;
   const cacheKey = session || ('title:' + titleHint);
-  if (_coverFailed.has(cacheKey)) return Promise.resolve(null);
+  if (_coverFailed.has(cacheKey)) return null;
   if (_coverCache[cacheKey]) return _coverCache[cacheKey];
 
-  // Called outside prefetchCovers (e.g. modal open) — run the full chain for this one session
   const p = (async () => {
-    // 1. AniList by ID
-    if (session) {
+    try {
+      if (session) {
+        const res = await fetch(API_BASE + '/api/info?slug=' + encodeURIComponent(session));
+        const json = await res.json();
+        if (json.success && json.data) {
+          const d = json.data;
+          const cover = (d.coverImage && (d.coverImage.extraLarge || d.coverImage.large || d.coverImage.medium)) || '';
+          return {
+            cover: cover,
+            banner: d.bannerImage || cover,
+            color: d.coverColor || null,
+            score: d.averageScore ? (d.averageScore / 10).toFixed(1) : null,
+            description: d.description ? d.description.replace(/<[^>]+>/g, '') : '',
+            genres: d.genres || [],
+            episodes: d.totalEpisodes || null,
+            status: d.status || null,
+            format: d.format || null,
+            seasonYear: d.year || null,
+            season: d.season || null,
+            duration: d.duration || null,
+            source: d.source || null,
+            studio: (d.studios && d.studios[0]) ? d.studios[0].name : null,
+            trailer: d.trailerId || null
+          };
+        }
+      }
+    } catch (_) {}
+
+    if (titleHint) {
       try {
-        const ids = await fetch(API_BASE + '/ids?session=' + encodeURIComponent(session)).then(r => r.json());
-        if (ids && ids.anilist) {
-          const m = await _batchAniList({ [cacheKey]: ids.anilist });
-          if (m[cacheKey]) return m[cacheKey];
+        const res = await fetch(API_BASE + '/api/search?q=' + encodeURIComponent(titleHint));
+        const json = await res.json();
+        const results = (json.success && json.data && json.data.results) || [];
+        if (results.length) {
+          const best = results[0];
+          const cover = (best.coverImage && (best.coverImage.extraLarge || best.coverImage.large || best.coverImage.medium)) || '';
+          return {
+            cover: cover,
+            banner: cover,
+            color: null,
+            score: best.averageScore ? (best.averageScore / 10).toFixed(1) : null,
+            description: '',
+            genres: best.genres || [],
+            episodes: best.totalEpisodes || null,
+            status: best.status || null,
+            format: best.format || null,
+            seasonYear: best.year || null,
+            season: null,
+            duration: null,
+            source: null,
+            studio: null,
+            trailer: null
+          };
         }
       } catch (_) {}
     }
-    // 2. AniList by title
-    if (titleHint) {
-      const m = await _batchAniListByTitle({ [cacheKey]: titleHint });
-      if (m[cacheKey]) {
-        const data = m[cacheKey];
-        if (data.episodes == null) {
-          _fetchJikan(titleHint).then(j => { if (j && j.episodes != null) data.episodes = j.episodes; });
-        }
-        return data;
-      }
-    }
-    // 3. Jikan last resort
-    const jd = titleHint ? await _fetchJikan(titleHint) : null;
-    if (!jd) _coverFailed.add(cacheKey);
-    return jd;
+
+    _coverFailed.add(cacheKey);
+    return null;
   })();
 
   _coverCache[cacheKey] = p;
@@ -2218,6 +2306,7 @@ function _alToHeroItem(m) {
   const cover = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '';
   const title = (m.title && (m.title.english || m.title.romaji)) || '';
   return {
+    id: m.id,
     title, cover, banner: m.bannerImage || cover,
     color: (m.coverImage && m.coverImage.color) || null,
     score: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
@@ -2231,6 +2320,48 @@ function _alToHeroItem(m) {
     trailer: (m.trailer && m.trailer.site === 'youtube') ? m.trailer.id : null,
     // no session — AniList item
   };
+}
+
+async function _fetchRecentlyAired() {
+  const now = Math.floor(Date.now() / 1000);
+  const oneWeekAgo = now - 7 * 24 * 60 * 60;
+  const query = `query ($page: Int, $perPage: Int, $airingAt_greater: Int, $airingAt_lesser: Int) {
+    Page(page: $page, perPage: $perPage) {
+      airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME_DESC) {
+        episode
+        airingAt
+        media {
+          id
+          title {
+            romaji
+            english
+          }
+          coverImage {
+            extraLarge
+            large
+          }
+          bannerImage
+        }
+      }
+    }
+  }`;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        variables: {
+          page: 1,
+          perPage: 20,
+          airingAt_greater: oneWeekAgo,
+          airingAt_lesser: now
+        }
+      })
+    });
+    const json = await res.json();
+    return (json.data && json.data.Page && json.data.Page.airingSchedules) || [];
+  } catch (_) { return []; }
 }
 
 function _makeALTrendingCard(m) {
@@ -2285,10 +2416,8 @@ async function loadTrendingAndRecent() {
   const [heroData, trendingItems, recentResult] = await Promise.all([
     _fetchAniListHero(),
     _fetchAniListTrending(),
-    fetch(API_BASE + '/latest?page=1').then(r => r.json()).catch(() => [])
+    fetch('/latest?page=1').then(r => r.json()).catch(() => [])
   ]);
-
-  const recentData = Array.isArray(recentResult) ? recentResult : [];
 
   // ── Hero: top 5 popular of the current season (need banner image) ─────────
   const heroSource = heroData.length ? heroData : trendingItems; // fallback to trending
@@ -2318,9 +2447,10 @@ async function loadTrendingAndRecent() {
   // ── Recently Updated row: AnimePahe (real episode release times) ──────────
   const recentRow = document.getElementById('recentRow');
   recentRow.innerHTML = '';
+  const recentData = Array.isArray(recentResult) ? recentResult : [];
   if (recentData.length) {
-    await prefetchCovers(recentData);
     recentData.forEach(item => recentRow.appendChild(makeWideCard(item)));
+    prefetchCovers(recentData).catch(() => {});
   } else {
     recentRow.innerHTML = '<div class="empty-state">No recent updates</div>';
   }
@@ -2412,6 +2542,7 @@ function _makeBrowseCardFromAL(m) {
     '<div class="a-info"><div class="a-title">' + esc(title) + '</div></div>';
 
   const syntheticItem = {
+    id: m.id,
     title, cover, banner: m.bannerImage || cover,
     color: (m.coverImage && m.coverImage.color) || null,
     score, genres: m.genres || [],
@@ -2920,17 +3051,20 @@ async function checkAvailable(title, airingAt) {
   _avail[key] = 'checking';
   const { searchTitle, aliased } = resolveSearchTitle(title);
   try {
-    const res  = await fetch(API_BASE + '/search?q=' + encodeURIComponent(searchTitle));
-    const data = await res.json();
+    const res  = await fetch(API_BASE + '/api/search?q=' + encodeURIComponent(searchTitle));
+    const json = await res.json();
+    const results = (json.success && json.data && json.data.results) || [];
     let found = false;
-    if (Array.isArray(data) && data.length) {
+    if (results.length) {
       if (aliased) {
-        // Alias query is provider-exact — trust the top result
         found = true;
       } else {
-        // Require exact normalized title match to prevent spin-off false positives
         const normTarget = _norm(searchTitle);
-        found = data.some(item => item.title && _norm(item.title) === normTarget);
+        found = results.some(item => {
+          if (!item.title) return false;
+          return (item.title.english && _norm(item.title.english) === normTarget) ||
+                 (item.title.romaji && _norm(item.title.romaji) === normTarget);
+        });
       }
     }
     _avail[key] = found ? 'available' : 'unavailable';
@@ -3109,6 +3243,7 @@ function makeCalCard(sched) {
   const cdTxt  = !aired ? (countdownStr(sched.airingAt)||'') : '';
 
   const synItem = {
+    id: m.id,
     title, cover, banner:m.bannerImage||cover,
     color:(m.coverImage&&m.coverImage.color)||null,
     score:m.averageScore?(m.averageScore/10).toFixed(1):null,
@@ -3301,4 +3436,3 @@ if (window.location.hash === '#calendar') {
 
 </script>
 </body>
-</html>

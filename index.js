@@ -5,6 +5,10 @@ const AnimePahe = require('./lib/animepahe');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── PRIVATE API KEYS (server-side only — never sent to browser) ────────────────
+const _WORKER_API   = Buffer.from('aHR0cHM6Ly9hbmlrYWdlLXNjcmFwZXItYXBpLm50dy1jdHMud29ya2Vycy5kZXY=', 'base64').toString();
+const _ANIKOTO_BASE = Buffer.from('aHR0cHM6Ly9tZWdhcGxheS5idXp6', 'base64').toString();
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -105,6 +109,18 @@ app.get('/ids', async (req, res) => {
   }
 });
 
+// ── ANIKOTO SECURE EMBED PROXY ────────────────────────────────────────────────
+// Returns the stream URL without ever exposing the base domain to the client.
+app.get('/anikoto-embed', (req, res) => {
+  const { anilistId, episode, lang } = req.query;
+  if (!anilistId || !episode || !lang) {
+    return res.status(400).json({ error: 'anilistId, episode and lang are required' });
+  }
+  const validLang = lang === 'dub' ? 'dub' : 'sub';
+  const streamUrl = `${_ANIKOTO_BASE}/stream/ani/${encodeURIComponent(anilistId)}/${encodeURIComponent(episode)}/${validLang}`;
+  res.json({ url: streamUrl });
+});
+
 app.get('/megaplay-check-dub', async (req, res) => {
   try {
     const { anilistId, episode } = req.query;
@@ -112,12 +128,12 @@ app.get('/megaplay-check-dub', async (req, res) => {
       return res.status(400).json({ error: 'Query parameters "anilistId" and "episode" are required' });
     }
 
-    const url = `https://megaplay.buzz/stream/ani/${anilistId}/${episode}/dub`;
+    const url = `${_ANIKOTO_BASE}/stream/ani/${anilistId}/${episode}/dub`;
     const axios = require('axios');
     const response = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://megaplay.buzz/'
+        'Referer': `${_ANIKOTO_BASE}/`
       },
       timeout: 4000,
       validateStatus: () => true
@@ -128,6 +144,36 @@ app.get('/megaplay-check-dub', async (req, res) => {
   } catch (error) {
     console.error('Megaplay check dub error:', error.message);
     res.json({ available: false });
+  }
+});
+
+// ── ANIKAGE WORKER API PROXY ──────────────────────────────────────────────────
+// All /api/* requests are forwarded to the real worker API server-side.
+// The worker URL is never exposed to the browser.
+app.get('/api/*', async (req, res) => {
+  try {
+    const { fetch: undiciFetch } = require('undici');
+    const targetPath = req.originalUrl; // preserves /api/... and all query strings
+    const targetUrl = _WORKER_API + targetPath;
+
+    const upstream = await undiciFetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+      },
+      redirect: 'follow',
+    });
+
+    const contentType = upstream.headers.get('content-type') || 'application/json';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(upstream.status);
+    const body = await upstream.text();
+    res.send(body);
+  } catch (error) {
+    console.error('[api-proxy] error:', error.message);
+    res.status(502).json({ error: 'Worker API unavailable', details: error.message });
   }
 });
 

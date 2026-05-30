@@ -637,7 +637,7 @@ const isIphoneOnly = /iPhone|iPod/.test(navigator.userAgent);
 if (isIphoneOnly) {
   document.documentElement.classList.add('is-iphone');
 }
-const API = 'https://anikage-scraper-api.ntw-cts.workers.dev';
+const API = '';
 
 // Changed to an array format to match index.html and support regex rules
 const TITLE_ALIAS_MAP = [
@@ -893,10 +893,10 @@ async function checkHealth() {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 4000);
   try {
-    const r = await fetch(`${API}/`, { signal: controller.signal });
+    const r = await fetch('/health', { signal: controller.signal });
     clearTimeout(timeoutId);
     const data = await r.json();
-    if (r.ok && data.name && data.name.includes('Anikage')) {
+    if (r.ok && data.status === 'ok') {
       dot.className = 'status-dot green';
       txt.textContent = 'API online';
       return true;
@@ -1532,8 +1532,10 @@ async function fetchAndPlayStream(token) {
       }
 
       const lang = currentAudioLang === 'eng' ? 'dub' : 'sub';
-      const _b = atob('aHR0cHM6Ly9tZWdhcGxheS5idXp6'); // Obfuscated 'https://megaplay.buzz'
-      const iframeUrl = `${_b}/stream/ani/${anilistId}/${currentEp.number}/${lang}`;
+      // Resolve iframe URL server-side so the stream domain is never exposed in client code
+      const embedRes = await fetch(`/anikoto-embed?anilistId=${encodeURIComponent(anilistId)}&episode=${encodeURIComponent(currentEp.number)}&lang=${lang}`);
+      if (!embedRes.ok) { throw new Error('Failed to resolve embed URL'); }
+      const { url: iframeUrl } = await embedRes.json();
       iframe.src = iframeUrl;
 
       // Handle loading states
